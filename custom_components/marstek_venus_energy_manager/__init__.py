@@ -63,6 +63,12 @@ from .const import (
     DEFAULT_PD_MIN_DISCHARGE_POWER,
     CONF_TARGET_GRID_POWER,
     DEFAULT_TARGET_GRID_POWER,
+    CONF_ENABLE_SYSTEM_POWER_LIMITS,
+    CONF_SYSTEM_MAX_CHARGE_POWER,
+    CONF_SYSTEM_MAX_DISCHARGE_POWER,
+    DEFAULT_ENABLE_SYSTEM_POWER_LIMITS,
+    DEFAULT_SYSTEM_MAX_CHARGE_POWER,
+    DEFAULT_SYSTEM_MAX_DISCHARGE_POWER,
     CONF_CAPACITY_PROTECTION_ENABLED,
     CONF_CAPACITY_PROTECTION_SOC_THRESHOLD,
     CONF_CAPACITY_PROTECTION_LIMIT,
@@ -159,6 +165,15 @@ class ChargeDischargeController:
         self.min_charge_power = config_entry.data.get(CONF_PD_MIN_CHARGE_POWER, DEFAULT_PD_MIN_CHARGE_POWER)
         self.min_discharge_power = config_entry.data.get(CONF_PD_MIN_DISCHARGE_POWER, DEFAULT_PD_MIN_DISCHARGE_POWER)
         self.target_grid_power = config_entry.data.get(CONF_TARGET_GRID_POWER, DEFAULT_TARGET_GRID_POWER)
+        self.enable_system_power_limits = config_entry.data.get(
+            CONF_ENABLE_SYSTEM_POWER_LIMITS,
+            (
+                (config_entry.data.get(CONF_SYSTEM_MAX_CHARGE_POWER, DEFAULT_SYSTEM_MAX_CHARGE_POWER) or 0) > 0
+                or (config_entry.data.get(CONF_SYSTEM_MAX_DISCHARGE_POWER, DEFAULT_SYSTEM_MAX_DISCHARGE_POWER) or 0) > 0
+            ),
+        )
+        self.system_max_charge_power = config_entry.data.get(CONF_SYSTEM_MAX_CHARGE_POWER, DEFAULT_SYSTEM_MAX_CHARGE_POWER)
+        self.system_max_discharge_power = config_entry.data.get(CONF_SYSTEM_MAX_DISCHARGE_POWER, DEFAULT_SYSTEM_MAX_DISCHARGE_POWER)
 
         # Sensor filtering to avoid reacting to instantaneous spikes
         self.sensor_history = []  # Keep last 3 readings for faster response
@@ -185,8 +200,8 @@ class ChargeDischargeController:
         self._max_stale_cycles = 15             # safety valve: ~30s before forcing recalculation
         
         # Calculate dynamic anti-windup limits based on total system capacity
-        self.max_charge_capacity = sum(c.max_charge_power for c in coordinators)
-        self.max_discharge_capacity = sum(c.max_discharge_power for c in coordinators)
+        self.max_charge_capacity = self._effective_system_capacity(coordinators, is_charging=True)
+        self.max_discharge_capacity = self._effective_system_capacity(coordinators, is_charging=False)
 
         # Load sharing state: track which batteries were active last cycle
         self._active_discharge_batteries = []
@@ -392,6 +407,51 @@ class ChargeDischargeController:
         _LOGGER.info("Hourly Net Balance: %s",
                      "ENABLED" if self.hourly_balance_enabled else "DISABLED")
 
+    def _configured_system_limit(self, is_charging: bool) -> int:
+        """Return the optional system-wide power limit for the direction.
+
+        0 means disabled, preserving the legacy behavior where only per-battery
+        limits define total system capacity.
+        """
+        if not self.enable_system_power_limits:
+            return 0
+
+        raw_limit = (
+            self.system_max_charge_power if is_charging
+            else self.system_max_discharge_power
+        )
+        try:
+            limit = int(raw_limit or 0)
+        except (TypeError, ValueError):
+            limit = 0
+        return max(0, limit)
+
+    def _effective_system_capacity(self, batteries: list, is_charging: bool) -> int:
+        """Return available capacity after applying the optional global cap."""
+        total_capacity = sum(
+            c.max_charge_power if is_charging else c.max_discharge_power
+            for c in batteries
+        )
+        system_limit = self._configured_system_limit(is_charging)
+        if system_limit > 0:
+            return min(total_capacity, system_limit)
+        return total_capacity
+
+    def _refresh_effective_system_capacities(self) -> None:
+        """Refresh cached capacities used by PD anti-windup diagnostics."""
+        self.max_charge_capacity = self._effective_system_capacity(
+            self.coordinators,
+            is_charging=True,
+        )
+        self.max_discharge_capacity = self._effective_system_capacity(
+            self.coordinators,
+            is_charging=False,
+        )
+
+    def _clamp_to_system_capacity(self, power: float, batteries: list, is_charging: bool) -> float:
+        """Clamp a positive direction-specific power request to available capacity."""
+        return min(power, self._effective_system_capacity(batteries, is_charging))
+
     def update_pd_parameters(self):
         """Re-read PD controller parameters from config_entry.data (hot-reload)."""
         # Update weekly full charge settings; reset completion state if day changed
@@ -420,6 +480,16 @@ class ChargeDischargeController:
         self.min_charge_power = self.config_entry.data.get(CONF_PD_MIN_CHARGE_POWER, DEFAULT_PD_MIN_CHARGE_POWER)
         self.min_discharge_power = self.config_entry.data.get(CONF_PD_MIN_DISCHARGE_POWER, DEFAULT_PD_MIN_DISCHARGE_POWER)
         self.target_grid_power = self.config_entry.data.get(CONF_TARGET_GRID_POWER, DEFAULT_TARGET_GRID_POWER)
+        self.enable_system_power_limits = self.config_entry.data.get(
+            CONF_ENABLE_SYSTEM_POWER_LIMITS,
+            (
+                (self.config_entry.data.get(CONF_SYSTEM_MAX_CHARGE_POWER, DEFAULT_SYSTEM_MAX_CHARGE_POWER) or 0) > 0
+                or (self.config_entry.data.get(CONF_SYSTEM_MAX_DISCHARGE_POWER, DEFAULT_SYSTEM_MAX_DISCHARGE_POWER) or 0) > 0
+            ),
+        )
+        self.system_max_charge_power = self.config_entry.data.get(CONF_SYSTEM_MAX_CHARGE_POWER, DEFAULT_SYSTEM_MAX_CHARGE_POWER)
+        self.system_max_discharge_power = self.config_entry.data.get(CONF_SYSTEM_MAX_DISCHARGE_POWER, DEFAULT_SYSTEM_MAX_DISCHARGE_POWER)
+        self._refresh_effective_system_capacities()
         self._setpoint_offsets["user_target"] = self.target_grid_power
         self.max_contracted_power = self.config_entry.data.get(CONF_MAX_CONTRACTED_POWER, 7000)
         self._delay_safety_margin_h = self.config_entry.data.get(CONF_DELAY_SAFETY_MARGIN_MIN, DEFAULT_DELAY_SAFETY_MARGIN_MIN) / 60.0
@@ -455,8 +525,15 @@ class ChargeDischargeController:
             _LOGGER.info("Hourly Net Balance: ENABLED via hot-reload")
         self.hourly_balance_enabled = new_hb_enabled
 
-        _LOGGER.info("PD parameters hot-reloaded: Kp=%.2f, Kd=%.2f, deadband=%d, max_change=%d, hysteresis=%d, min_charge=%d, min_discharge=%d",
-                     self.kp, self.kd, self.deadband, self.max_power_change_per_cycle, self.direction_hysteresis, self.min_charge_power, self.min_discharge_power)
+        _LOGGER.info(
+            "PD parameters hot-reloaded: Kp=%.2f, Kd=%.2f, deadband=%d, max_change=%d, "
+            "hysteresis=%d, min_charge=%d, min_discharge=%d, system_limits=%s, system_max_charge=%d, "
+            "system_max_discharge=%d",
+            self.kp, self.kd, self.deadband, self.max_power_change_per_cycle,
+            self.direction_hysteresis, self.min_charge_power, self.min_discharge_power,
+            self.enable_system_power_limits,
+            self.system_max_charge_power, self.system_max_discharge_power,
+        )
 
     def _make_block_record(self, registry: dict, source: str, reason: str, details: dict | None) -> dict:
         """Build a blocker record, preserving the original activation time."""
@@ -1490,7 +1567,10 @@ class ChargeDischargeController:
             return _unlock("batteries_full")
 
         # Charge time estimate
-        max_charge_power_kw = sum(c.max_charge_power for c in self.coordinators) / 1000.0
+        max_charge_power_kw = self._effective_system_capacity(
+            self.coordinators,
+            is_charging=True,
+        ) / 1000.0
         if max_charge_power_kw <= 0:
             return _unlock("no_charge_power")
         charge_time_h = energy_needed_kwh / (max_charge_power_kw * CHARGE_EFFICIENCY)
@@ -2137,7 +2217,10 @@ class ChargeDischargeController:
             return
         
         # Calculate max available charging power from batteries
-        max_battery_charge = sum(c.max_charge_power for c in available_batteries)
+        max_battery_charge = self._effective_system_capacity(
+            available_batteries,
+            is_charging=True,
+        )
         
         # TARGET: max_contracted_power (e.g., 7000W)
         # ERROR: target - sensor_actual (INVERTED for predictive mode)
@@ -2236,8 +2319,12 @@ class ChargeDischargeController:
         if total_capacity <= 0:
             return {c: 0 for c in available_batteries}
 
-        # Clamp total request to total capacity
-        remaining_power = min(total_power, total_capacity)
+        # Clamp total request to selected-battery capacity and optional system cap.
+        remaining_power = self._clamp_to_system_capacity(
+            min(total_power, total_capacity),
+            available_batteries,
+            is_charging,
+        )
 
         allocation = {}
         remaining_batteries = list(available_batteries)
@@ -2318,6 +2405,12 @@ class ChargeDischargeController:
             self._discharge_selection_hold_cycles.clear()
             self._charge_selection_hold_cycles.clear()
             return list(available_batteries)
+
+        total_power = self._clamp_to_system_capacity(
+            total_power,
+            available_batteries,
+            is_charging,
+        )
 
         crossover_w = (
             MULTI_BATTERY_CHARGE_CROSSOVER_W if is_charging
@@ -4436,6 +4529,13 @@ class ChargeDischargeController:
                 self._active_charge_batteries = []
                 return
 
+            if self.previous_power != 0:
+                limit = self._effective_system_capacity(available_batteries, is_charging)
+                if is_charging and self.previous_power > limit:
+                    self.previous_power = limit
+                elif not is_charging and abs(self.previous_power) > limit:
+                    self.previous_power = -limit
+
             # Select batteries via load sharing, then distribute power
             selected_batteries = self._select_batteries_for_operation(abs(self.previous_power), available_batteries, is_charging)
             power_allocation = self._distribute_power_by_limits(abs(self.previous_power), selected_batteries, is_charging)
@@ -4471,6 +4571,7 @@ class ChargeDischargeController:
         # Deadband was already checked on filtered sensor before compensation
         _LOGGER.debug("ChargeDischargeController: sensor_actual=%fW, UPDATING BATTERIES!",
                       sensor_actual)
+        self._refresh_effective_system_capacities()
         
         # PD CONTROLLER: Calculate adjustment based on grid imbalance relative to target
         # error > 0: grid power above target → need to discharge more / charge less
@@ -4667,8 +4768,14 @@ class ChargeDischargeController:
         # Apply limits: calculate max total power based on AVAILABLE batteries (not all coordinators)
         # This ensures we only compare against batteries that can actually participate
         if available_batteries:
-            max_total_discharge = sum(c.max_discharge_power for c in available_batteries)
-            max_total_charge = sum(c.max_charge_power for c in available_batteries)
+            max_total_discharge = self._effective_system_capacity(
+                available_batteries,
+                is_charging=False,
+            )
+            max_total_charge = self._effective_system_capacity(
+                available_batteries,
+                is_charging=True,
+            )
         else:
             # No batteries available, use zero limits
             max_total_discharge = 0

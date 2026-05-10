@@ -291,7 +291,10 @@
           "pd_direction_hysteresis": "Histéresis de dirección (W)",
           "pd_min_charge_power": "Potencia mínima de carga (W)",
           "pd_min_discharge_power": "Potencia mínima de descarga (W)",
-          "pd_target_grid_power": "Potencia objetivo de red (W)"
+          "pd_target_grid_power": "Potencia objetivo de red (W)",
+          "enable_system_power_limits": "Activar limites de potencia del sistema",
+          "system_max_charge_power": "Potencia maxima de carga del sistema (W)",
+          "system_max_discharge_power": "Potencia maxima de descarga del sistema (W)"
         },
         "data_description": {
           "pd_kp": "Capacidad de respuesta al desequilibrio de red. Valores más altos = respuesta más rápida pero riesgo de sobreoscilación. Rango: 0.1-2.0, predeterminado: 0.65",
@@ -301,7 +304,10 @@
           "pd_direction_hysteresis": "Umbral de potencia requerido para cambiar entre carga y descarga. Previene cambios rápidos de dirección. Rango: 0-200W, predeterminado: 60W",
           "pd_min_charge_power": "Potencia mínima para cargar. Por debajo de este umbral, el controlador queda en reposo en vez de cargar a baja potencia. 0 = desactivado.",
           "pd_min_discharge_power": "Potencia mínima para descargar. Por debajo de este umbral, el controlador queda en reposo en vez de descargar a baja potencia. 0 = desactivado.",
-          "pd_target_grid_power": "Consigna de potencia de red que regula el controlador. Negativo = exportar a red, positivo = importar de red, 0 = balance neto cero. Rango: -500 a +500 W, valor por defecto: 0 W."
+          "pd_target_grid_power": "Consigna de potencia de red que regula el controlador. Negativo = exportar a red, positivo = importar de red, 0 = balance neto cero. Rango: -500 a +500 W, valor por defecto: 0 W.",
+          "enable_system_power_limits": "Al activarlo, los dos sliders inferiores limitan la potencia combinada de carga/descarga de todas las baterias activas.",
+          "system_max_charge_power": "Limite opcional para la potencia de carga combinada de todas las baterias activas. 0 = desactivado; los limites por bateria siguen aplicandose.",
+          "system_max_discharge_power": "Limite opcional para la potencia de descarga combinada de todas las baterias activas. 0 = desactivado; los limites por bateria siguen aplicandose."
         }
       },
       "hourly_balance_config": {
@@ -634,7 +640,10 @@
           "pd_direction_hysteresis": "Histéresis de dirección (W)",
           "pd_min_charge_power": "Potencia mínima de carga (W)",
           "pd_min_discharge_power": "Potencia mínima de descarga (W)",
-          "pd_target_grid_power": "Potencia objetivo de red (W)"
+          "pd_target_grid_power": "Potencia objetivo de red (W)",
+          "enable_system_power_limits": "Activar limites de potencia del sistema",
+          "system_max_charge_power": "Potencia maxima de carga del sistema (W)",
+          "system_max_discharge_power": "Potencia maxima de descarga del sistema (W)"
         },
         "data_description": {
           "pd_kp": "Capacidad de respuesta al desequilibrio de red. Valores más altos = respuesta más rápida pero riesgo de sobreoscilación. Rango: 0.1-2.0, predeterminado: 0.65",
@@ -644,7 +653,10 @@
           "pd_direction_hysteresis": "Umbral de potencia requerido para cambiar entre carga y descarga. Previene cambios rápidos de dirección. Rango: 0-200W, predeterminado: 60W",
           "pd_min_charge_power": "Potencia mínima para cargar. Por debajo de este umbral, el controlador queda en reposo en vez de cargar a baja potencia. 0 = desactivado.",
           "pd_min_discharge_power": "Potencia mínima para descargar. Por debajo de este umbral, el controlador queda en reposo en vez de descargar a baja potencia. 0 = desactivado.",
-          "pd_target_grid_power": "Consigna de potencia de red que regula el controlador. Negativo = exportar a red, positivo = importar de red, 0 = balance neto cero. Rango: -500 a +500 W, valor por defecto: 0 W."
+          "pd_target_grid_power": "Consigna de potencia de red que regula el controlador. Negativo = exportar a red, positivo = importar de red, 0 = balance neto cero. Rango: -500 a +500 W, valor por defecto: 0 W.",
+          "enable_system_power_limits": "Al activarlo, los dos sliders inferiores limitan la potencia combinada de carga/descarga de todas las baterias activas.",
+          "system_max_charge_power": "Limite opcional para la potencia de carga combinada de todas las baterias activas. 0 = desactivado; los limites por bateria siguen aplicandose.",
+          "system_max_discharge_power": "Limite opcional para la potencia de descarga combinada de todas las baterias activas. 0 = desactivado; los limites por bateria siguen aplicandose."
         }
       },
       "hourly_balance": {
@@ -1075,6 +1087,12 @@
       },
       "pd_target_grid_power": {
         "name": "PD Potencia Objetivo Red"
+      },
+      "system_max_charge_power": {
+        "name": "Potencia maxima de carga del sistema"
+      },
+      "system_max_discharge_power": {
+        "name": "Potencia maxima de descarga del sistema"
       },
       "max_contracted_power": {
         "name": "Potencia Máxima Contratada"

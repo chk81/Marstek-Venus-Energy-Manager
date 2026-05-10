@@ -62,7 +62,14 @@ Permite ajustar los parámetros internos del controlador PD. Todos los valores s
 | **Histéresis direccional** | `60 W` | 0 – 200 W | Margen necesario para cambiar de carga a descarga o viceversa |
 | **Potencia mínima de carga** | `0 W` | 0 – 2000 W | Si el controlador calcula una carga por debajo de este valor, permanece en espera. `0` = desactivado |
 | **Potencia mínima de descarga** | `0 W` | 0 – 2000 W | Igual que el anterior pero para descarga. `0` = desactivado |
+| **Activar limites de potencia del sistema** | desactivado | activado/desactivado | Activa la funcionalidad de limite global de carga/descarga |
+| **Potencia maxima de carga del sistema** | `0 W` | 0 – 15000 W | Limite opcional para la potencia de carga combinada de todas las baterias activas. `0` = desactivado |
+| **Potencia maxima de descarga del sistema** | `0 W` | 0 – 15000 W | Limite opcional para la potencia de descarga combinada de todas las baterias activas. `0` = desactivado |
 
 Los parámetros de potencia mínima de carga/descarga son útiles para evitar microciclos ineficientes cuando la demanda de la red es muy baja.
+
+Los limites maximos del sistema son utiles cuando la instalacion tiene un limite compartido de hardware o cableado. No reducen el maximo individual de cada bateria: si solo una bateria esta activa, puede seguir usando su limite configurado; cuando hay varias baterias activas, el controlador limita el total combinado al cap configurado.
+
+Cuando **Activar limites de potencia del sistema** esta desactivado, ambos caps se ignoran y no se crean sus entidades `number` de runtime. Cuando esta activado, los caps se exponen como sliders en el dispositivo Marstek Venus System.
 
 ![Configuración avanzada del controlador PD](../assets/screenshots/configuration/advanced-pd-controller-config.png){ width="650"  style="display: block; margin: 0 auto;"}

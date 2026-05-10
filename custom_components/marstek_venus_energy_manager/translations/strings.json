@@ -282,7 +282,10 @@
           "pd_direction_hysteresis": "Direction Hysteresis (W)",
           "pd_min_charge_power": "Minimum Charge Power (W)",
           "pd_min_discharge_power": "Minimum Discharge Power (W)",
-          "pd_target_grid_power": "Target Grid Power (W)"
+          "pd_target_grid_power": "Target Grid Power (W)",
+          "enable_system_power_limits": "Enable system power limits",
+          "system_max_charge_power": "System Max Charge Power (W)",
+          "system_max_discharge_power": "System Max Discharge Power (W)"
         },
         "data_description": {
           "pd_kp": "Responsiveness to grid imbalance. Higher values = faster response but risk of overshoot. Range: 0.1-2.0, default: 0.65",
@@ -292,7 +295,10 @@
           "pd_direction_hysteresis": "Power threshold required to switch between charging and discharging. Prevents rapid direction changes. Range: 0-200W, default: 60W",
           "pd_min_charge_power": "Minimum power for charging. Below this threshold, the controller stays idle instead of charging at low power. 0 = disabled.",
           "pd_min_discharge_power": "Minimum power for discharging. Below this threshold, the controller stays idle instead of discharging at low power. 0 = disabled.",
-          "pd_target_grid_power": "Grid power setpoint the controller regulates to. Negative = export to grid, positive = import from grid, 0 = net zero. Range: -500 to +500 W, default: 0 W."
+          "pd_target_grid_power": "Grid power setpoint the controller regulates to. Negative = export to grid, positive = import from grid, 0 = net zero. Range: -500 to +500 W, default: 0 W.",
+          "enable_system_power_limits": "When enabled, the two sliders below cap the combined charge/discharge power of all active batteries.",
+          "system_max_charge_power": "Optional cap for combined charge power across all active batteries. 0 = disabled; per-battery limits still apply.",
+          "system_max_discharge_power": "Optional cap for combined discharge power across all active batteries. 0 = disabled; per-battery limits still apply."
         }
       },
       "hourly_balance": {
@@ -630,7 +636,10 @@
           "pd_direction_hysteresis": "Direction Hysteresis (W)",
           "pd_min_charge_power": "Minimum Charge Power (W)",
           "pd_min_discharge_power": "Minimum Discharge Power (W)",
-          "pd_target_grid_power": "Target Grid Power (W)"
+          "pd_target_grid_power": "Target Grid Power (W)",
+          "enable_system_power_limits": "Enable system power limits",
+          "system_max_charge_power": "System Max Charge Power (W)",
+          "system_max_discharge_power": "System Max Discharge Power (W)"
         },
         "data_description": {
           "pd_kp": "Responsiveness to grid imbalance. Higher values = faster response but risk of overshoot. Range: 0.1-2.0, default: 0.65",
@@ -640,7 +649,10 @@
           "pd_direction_hysteresis": "Power threshold required to switch between charging and discharging. Prevents rapid direction changes. Range: 0-200W, default: 60W",
           "pd_min_charge_power": "Minimum power for charging. Below this threshold, the controller stays idle instead of charging at low power. 0 = disabled.",
           "pd_min_discharge_power": "Minimum power for discharging. Below this threshold, the controller stays idle instead of discharging at low power. 0 = disabled.",
-          "pd_target_grid_power": "Grid power setpoint the controller regulates to. Negative = export to grid, positive = import from grid, 0 = net zero. Range: -500 to +500 W, default: 0 W."
+          "pd_target_grid_power": "Grid power setpoint the controller regulates to. Negative = export to grid, positive = import from grid, 0 = net zero. Range: -500 to +500 W, default: 0 W.",
+          "enable_system_power_limits": "When enabled, the two sliders below cap the combined charge/discharge power of all active batteries.",
+          "system_max_charge_power": "Optional cap for combined charge power across all active batteries. 0 = disabled; per-battery limits still apply.",
+          "system_max_discharge_power": "Optional cap for combined discharge power across all active batteries. 0 = disabled; per-battery limits still apply."
         }
       },
       "hourly_balance": {
@@ -1070,6 +1082,12 @@
       },
       "pd_target_grid_power": {
         "name": "PD Target Grid Power"
+      },
+      "system_max_charge_power": {
+        "name": "System Max Charge Power"
+      },
+      "system_max_discharge_power": {
+        "name": "System Max Discharge Power"
       },
       "max_contracted_power": {
         "name": "Max Contracted Power"

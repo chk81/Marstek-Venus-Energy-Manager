@@ -93,6 +93,15 @@ Para evitar el "ping-pong" de activación/desactivación, se aplican tres nivele
 
 Una vez seleccionadas las baterías activas, la potencia total calculada por el [controlador PD](pd-controller.md) se reparte entre ellas proporcionalmente, respetando los límites individuales de potencia y SOC de cada una.
 
+Tambien se pueden configurar limites globales opcionales en **Controlador PD avanzado** tras activar **Activar limites de potencia del sistema**:
+
+| Ajuste | Efecto |
+|---|---|
+| `Potencia maxima de carga del sistema` | Limita la potencia de carga combinada de todas las baterias activas |
+| `Potencia maxima de descarga del sistema` | Limita la potencia de descarga combinada de todas las baterias activas |
+
+Pon cualquiera de los valores a `0 W` para desactivar el cap de esa direccion. Estos limites se aplican despues de determinar que baterias son elegibles y antes de repartir la potencia, de modo que una bateria puede seguir usando todo su limite individual cuando es la unica activa. Si hay varias baterias activas, el total combinado se limita al cap configurado. Las entidades slider de runtime correspondientes solo se crean cuando la funcionalidad esta activada.
+
 ## Controles de carga/descarga por batería
 
 Cada batería expone dos switches de software:

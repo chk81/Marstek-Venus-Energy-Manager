@@ -66,6 +66,8 @@ Only present when the [cell balance monitor](../features/cell-balance-monitor.md
 | `number.*_min_soc` | Minimum SOC | 0–100 % |
 | `number.*_max_charge_power` | Max charge power | W |
 | `number.*_max_discharge_power` | Max discharge power | W |
+| `number.marstek_venus_system_system_max_charge_power` | Optional combined charge cap for the whole system (`0 W` = disabled). Only created when system power limits are enabled. | 0–15000 W |
+| `number.marstek_venus_system_system_max_discharge_power` | Optional combined discharge cap for the whole system (`0 W` = disabled). Only created when system power limits are enabled. | 0–15000 W |
 | `number.*_max_soc` | Maximum SOC | 0–100 % |
 | `number.*_min_soc` | Minimum SOC | 0–100 % |
 | `number.*_max_charge_power` | Max charge power | W |
@@ -143,5 +145,21 @@ Available under the `sensor.marstek_venus_system_*` prefix, summing values acros
 - `grid_at_min_soc` — Grid import during min SOC periods (kWh)
 - `system_alarm_status` — Aggregated alarm state across all batteries (`OK` / `Warning` / `Fault`); attributes list active conditions per battery
 - `household_energy_today` — Today's household energy consumption accumulated from the optional household power sensor, during the solar+battery window (kWh). Only present when a household consumption sensor is configured. Resets at midnight.
+
+### Configuration Summary
+
+`sensor.marstek_venus_system_configuration_summary` is a hidden diagnostic sensor intended for support reports. It exposes configuration attributes without battery IP addresses or ports.
+
+Relevant power-limit attributes include:
+
+| Attribute | Description |
+|---|---|
+| `total_max_charge_power_W` | Sum of configured per-battery charge limits |
+| `total_max_discharge_power_W` | Sum of configured per-battery discharge limits |
+| `system_power_limits_enabled` | Whether system-wide power caps are enabled |
+| `system_max_charge_power_W` | Configured system-wide charge cap (`0` = disabled) |
+| `system_max_discharge_power_W` | Configured system-wide discharge cap (`0` = disabled) |
+| `effective_total_max_charge_power_W` | Total charge capacity after applying the system cap |
+| `effective_total_max_discharge_power_W` | Total discharge capacity after applying the system cap |
 
 ![Entity list in Home Assistant](../assets/screenshots/reference/entities-list.png){ width="700"  style="display: block; margin: 0 auto;"}

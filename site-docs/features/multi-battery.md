@@ -93,6 +93,15 @@ To avoid "ping-pong" activation/deactivation, three hysteresis levels are applie
 
 Once active batteries are selected, the total power calculated by the [PD controller](pd-controller.md) is distributed among them proportionally, respecting each battery's individual power and SOC limits.
 
+Optional system-wide caps can also be configured in **Advanced PD controller** after enabling **Enable system power limits**:
+
+| Setting | Effect |
+|---|---|
+| `System Max Charge Power` | Caps the combined charge power across all active batteries |
+| `System Max Discharge Power` | Caps the combined discharge power across all active batteries |
+
+Set either value to `0 W` to disable that direction's cap. These limits are applied after per-battery eligibility is determined and before power is distributed, so one battery can still use its full individual limit when it is the only active battery. If several batteries are active, the combined total is throttled to the configured system cap. The corresponding runtime slider entities are only created when the feature is enabled.
+
 ## Per-battery charge/discharge controls
 
 Each battery exposes two software switches:

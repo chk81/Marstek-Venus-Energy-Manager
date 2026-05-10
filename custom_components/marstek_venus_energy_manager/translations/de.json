@@ -284,7 +284,10 @@
           "pd_direction_hysteresis": "Richtungshysterese (W)",
           "pd_min_charge_power": "Minimale Ladeleistung (W)",
           "pd_min_discharge_power": "Minimale Entladeleistung (W)",
-          "pd_target_grid_power": "Ziel-Netzleistung (W)"
+          "pd_target_grid_power": "Ziel-Netzleistung (W)",
+          "enable_system_power_limits": "System-Leistungslimits aktivieren",
+          "system_max_charge_power": "System-Maximal-Ladeleistung (W)",
+          "system_max_discharge_power": "System-Maximal-Entladeleistung (W)"
         },
         "data_description": {
           "pd_kp": "Reaktionsfähigkeit auf Netzungleichgewicht. Höhere Werte = schnellere Reaktion, aber Risiko von Überschwingen. Bereich: 0.1-2.0, Standard: 0.65",
@@ -294,7 +297,10 @@
           "pd_direction_hysteresis": "Leistungsschwelle zum Wechsel zwischen Laden und Entladen. Verhindert schnelle Richtungswechsel. Bereich: 0-200W, Standard: 60W",
           "pd_min_charge_power": "Minimale Leistung zum Laden. Unterhalb dieser Schwelle bleibt der Regler im Leerlauf statt mit niedriger Leistung zu laden. 0 = deaktiviert.",
           "pd_min_discharge_power": "Minimale Leistung zum Entladen. Unterhalb dieser Schwelle bleibt der Regler im Leerlauf statt mit niedriger Leistung zu entladen. 0 = deaktiviert.",
-          "pd_target_grid_power": "Netzleistungs-Sollwert, auf den der Regler regelt. Negativ = Einspeisung, positiv = Bezug, 0 = Netto-Null. Bereich: -500 bis +500 W, Standard: 0 W."
+          "pd_target_grid_power": "Netzleistungs-Sollwert, auf den der Regler regelt. Negativ = Einspeisung, positiv = Bezug, 0 = Netto-Null. Bereich: -500 bis +500 W, Standard: 0 W.",
+          "enable_system_power_limits": "Wenn aktiviert, begrenzen die beiden Slider unten die kombinierte Lade-/Entladeleistung aller aktiven Batterien.",
+          "system_max_charge_power": "Optionales Limit fuer die kombinierte Ladeleistung aller aktiven Batterien. 0 = deaktiviert; Limits pro Batterie gelten weiterhin.",
+          "system_max_discharge_power": "Optionales Limit fuer die kombinierte Entladeleistung aller aktiven Batterien. 0 = deaktiviert; Limits pro Batterie gelten weiterhin."
         }
       },
       "hourly_balance": {
@@ -634,7 +640,10 @@
           "pd_direction_hysteresis": "Richtungshysterese (W)",
           "pd_min_charge_power": "Minimale Ladeleistung (W)",
           "pd_min_discharge_power": "Minimale Entladeleistung (W)",
-          "pd_target_grid_power": "Ziel-Netzleistung (W)"
+          "pd_target_grid_power": "Ziel-Netzleistung (W)",
+          "enable_system_power_limits": "System-Leistungslimits aktivieren",
+          "system_max_charge_power": "System-Maximal-Ladeleistung (W)",
+          "system_max_discharge_power": "System-Maximal-Entladeleistung (W)"
         },
         "data_description": {
           "pd_kp": "Reaktionsfähigkeit auf Netzungleichgewicht. Höhere Werte = schnellere Reaktion, aber Risiko von Überschwingen. Bereich: 0.1-2.0, Standard: 0.65",
@@ -644,7 +653,10 @@
           "pd_direction_hysteresis": "Leistungsschwelle zum Wechsel zwischen Laden und Entladen. Verhindert schnelle Richtungswechsel. Bereich: 0-200W, Standard: 60W",
           "pd_min_charge_power": "Minimale Leistung zum Laden. Unterhalb dieser Schwelle bleibt der Regler im Leerlauf statt mit niedriger Leistung zu laden. 0 = deaktiviert.",
           "pd_min_discharge_power": "Minimale Leistung zum Entladen. Unterhalb dieser Schwelle bleibt der Regler im Leerlauf statt mit niedriger Leistung zu entladen. 0 = deaktiviert.",
-          "pd_target_grid_power": "Netzleistungs-Sollwert, auf den der Regler regelt. Negativ = Einspeisung, positiv = Bezug, 0 = Netto-Null. Bereich: -500 bis +500 W, Standard: 0 W."
+          "pd_target_grid_power": "Netzleistungs-Sollwert, auf den der Regler regelt. Negativ = Einspeisung, positiv = Bezug, 0 = Netto-Null. Bereich: -500 bis +500 W, Standard: 0 W.",
+          "enable_system_power_limits": "Wenn aktiviert, begrenzen die beiden Slider unten die kombinierte Lade-/Entladeleistung aller aktiven Batterien.",
+          "system_max_charge_power": "Optionales Limit fuer die kombinierte Ladeleistung aller aktiven Batterien. 0 = deaktiviert; Limits pro Batterie gelten weiterhin.",
+          "system_max_discharge_power": "Optionales Limit fuer die kombinierte Entladeleistung aller aktiven Batterien. 0 = deaktiviert; Limits pro Batterie gelten weiterhin."
         }
       },
       "hourly_balance": {
@@ -1075,6 +1087,12 @@
       },
       "pd_target_grid_power": {
         "name": "PD Ziel-Netzleistung"
+      },
+      "system_max_charge_power": {
+        "name": "System-Maximal-Ladeleistung"
+      },
+      "system_max_discharge_power": {
+        "name": "System-Maximal-Entladeleistung"
       },
       "max_contracted_power": {
         "name": "Max. Vertragsleistung"

@@ -284,7 +284,10 @@
           "pd_direction_hysteresis": "Richting hysterese (W)",
           "pd_min_charge_power": "Minimaal laadvermogen (W)",
           "pd_min_discharge_power": "Minimaal ontlaadvermogen (W)",
-          "pd_target_grid_power": "Doelnetvermogen (W)"
+          "pd_target_grid_power": "Doelnetvermogen (W)",
+          "enable_system_power_limits": "Systeemvermogenslimieten inschakelen",
+          "system_max_charge_power": "Maximaal systeemlaadvermogen (W)",
+          "system_max_discharge_power": "Maximaal systeemontlaadvermogen (W)"
         },
         "data_description": {
           "pd_kp": "Responsiviteit op netwerk onbalans. Hogere waarden = snellere respons maar risico op overshoot. Bereik: 0.1-2.0, standaard: 0.65",
@@ -294,7 +297,10 @@
           "pd_direction_hysteresis": "Vermogensdrempel vereist om te schakelen tussen laden en ontladen. Voorkomt snelle richtingsveranderingen. Bereik: 0-200W, standaard: 60W",
           "pd_min_charge_power": "Minimaal vermogen om te laden. Onder deze drempel blijft de regelaar inactief in plaats van laden op laag vermogen. 0 = uitgeschakeld.",
           "pd_min_discharge_power": "Minimaal vermogen om te ontladen. Onder deze drempel blijft de regelaar inactief in plaats van ontladen op laag vermogen. 0 = uitgeschakeld.",
-          "pd_target_grid_power": "Netvermogen-setpoint waarop de regelaar regelt. Negatief = teruglevering, positief = afname, 0 = netto nul. Bereik: -500 tot +500 W, standaard: 0 W."
+          "pd_target_grid_power": "Netvermogen-setpoint waarop de regelaar regelt. Negatief = teruglevering, positief = afname, 0 = netto nul. Bereik: -500 tot +500 W, standaard: 0 W.",
+          "enable_system_power_limits": "Wanneer ingeschakeld beperken de twee sliders hieronder het gecombineerde laad-/ontlaadvermogen van alle actieve batterijen.",
+          "system_max_charge_power": "Optionele limiet voor gecombineerd laadvermogen van alle actieve batterijen. 0 = uitgeschakeld; limieten per batterij blijven gelden.",
+          "system_max_discharge_power": "Optionele limiet voor gecombineerd ontlaadvermogen van alle actieve batterijen. 0 = uitgeschakeld; limieten per batterij blijven gelden."
         }
       },
       "hourly_balance": {
@@ -634,7 +640,10 @@
           "pd_direction_hysteresis": "Richting hysterese (W)",
           "pd_min_charge_power": "Minimaal laadvermogen (W)",
           "pd_min_discharge_power": "Minimaal ontlaadvermogen (W)",
-          "pd_target_grid_power": "Doelnetvermogen (W)"
+          "pd_target_grid_power": "Doelnetvermogen (W)",
+          "enable_system_power_limits": "Systeemvermogenslimieten inschakelen",
+          "system_max_charge_power": "Maximaal systeemlaadvermogen (W)",
+          "system_max_discharge_power": "Maximaal systeemontlaadvermogen (W)"
         },
         "data_description": {
           "pd_kp": "Responsiviteit op netwerk onbalans. Hogere waarden = snellere respons maar risico op overshoot. Bereik: 0.1-2.0, standaard: 0.65",
@@ -644,7 +653,10 @@
           "pd_direction_hysteresis": "Vermogensdrempel vereist om te schakelen tussen laden en ontladen. Voorkomt snelle richtingsveranderingen. Bereik: 0-200W, standaard: 60W",
           "pd_min_charge_power": "Minimaal vermogen om te laden. Onder deze drempel blijft de regelaar inactief in plaats van laden op laag vermogen. 0 = uitgeschakeld.",
           "pd_min_discharge_power": "Minimaal vermogen om te ontladen. Onder deze drempel blijft de regelaar inactief in plaats van ontladen op laag vermogen. 0 = uitgeschakeld.",
-          "pd_target_grid_power": "Netvermogen-setpoint waarop de regelaar regelt. Negatief = teruglevering, positief = afname, 0 = netto nul. Bereik: -500 tot +500 W, standaard: 0 W."
+          "pd_target_grid_power": "Netvermogen-setpoint waarop de regelaar regelt. Negatief = teruglevering, positief = afname, 0 = netto nul. Bereik: -500 tot +500 W, standaard: 0 W.",
+          "enable_system_power_limits": "Wanneer ingeschakeld beperken de twee sliders hieronder het gecombineerde laad-/ontlaadvermogen van alle actieve batterijen.",
+          "system_max_charge_power": "Optionele limiet voor gecombineerd laadvermogen van alle actieve batterijen. 0 = uitgeschakeld; limieten per batterij blijven gelden.",
+          "system_max_discharge_power": "Optionele limiet voor gecombineerd ontlaadvermogen van alle actieve batterijen. 0 = uitgeschakeld; limieten per batterij blijven gelden."
         }
       },
       "hourly_balance": {
@@ -1075,6 +1087,12 @@
       },
       "pd_target_grid_power": {
         "name": "PD Doelnetvermogen"
+      },
+      "system_max_charge_power": {
+        "name": "Maximaal systeemlaadvermogen"
+      },
+      "system_max_discharge_power": {
+        "name": "Maximaal systeemontlaadvermogen"
       },
       "max_contracted_power": {
         "name": "Max. Gecontracteerd Vermogen"
