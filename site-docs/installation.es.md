@@ -43,6 +43,44 @@ La batería debe ser accesible desde Home Assistant por IP en el mismo segmento 
 
 ---
 
+## Instalación de blueprints
+
+Los blueprints son opcionales y se instalan en la carpeta de configuración de Home Assistant, no dentro de `custom_components/`.
+
+La carpeta de blueprints de tu Home Assistant es:
+
+```text
+/config/blueprints/automation/marstek_venus_energy_manager/
+```
+
+Si accedes a Home Assistant mediante Samba, Studio Code Server o File Editor, la misma ruta suele verse como:
+
+```text
+config/blueprints/automation/marstek_venus_energy_manager/
+```
+
+### Instalación desde la interfaz de Home Assistant
+
+1. Ve a **Ajustes** → **Automatizaciones y escenas** → **Blueprints**.
+2. Pulsa **Importar blueprint**.
+3. Pega la URL del blueprint que quieras importar, por ejemplo:
+
+    ```text
+    https://raw.githubusercontent.com/ffunes/Marstek-Venus-Energy-Manager/main/blueprints/different_grid_target_blueprint.yaml
+    ```
+
+4. Pulsa **Previsualizar blueprint** y después **Importar blueprint**.
+5. Crea una automatización nueva desde el blueprint importado y selecciona tus entidades.
+
+### Instalación manual
+
+1. Crea la carpeta `/config/blueprints/automation/marstek_venus_energy_manager/` si no existe.
+2. Copia dentro los archivos `.yaml` de la carpeta `blueprints/` de este repositorio.
+3. En Home Assistant, ve a **Ajustes** → **Automatizaciones y escenas** → **Blueprints** y pulsa **Recargar blueprints**. Si no aparece la opción, reinicia Home Assistant.
+4. Crea una automatización nueva desde el blueprint instalado.
+
+---
+
 ## Añadir la integración
 
 Después de instalar y reiniciar:
