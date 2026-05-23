@@ -1,4 +1,4 @@
-# Cell balance monitor
+﻿# Cell balance monitor
 
 Tracks the voltage spread between the strongest and weakest battery cell after each weekly full charge, giving you a long-term picture of how well your battery cells are staying in balance.
 
@@ -22,135 +22,63 @@ paused or tapered while another battery continues charging normally.
 
 | Condition for one battery | Maximum charge allocation for that battery |
 |---|---:|
-| SOC below 95 % and `max_cell_voltage` below 3.45 V | Normal configured limit |
-| SOC at or above 95 % | 200 W |
-| SOC at or above 98 % | 90 W |
-| `max_cell_voltage` at or above 3.45 V | 90 W |
-| `max_cell_voltage` at or above 3.60 V | Charging paused |
+| `max_cell_voltage` below 3.45 V | Normal configured limit |
+| `max_cell_voltage` at or above 3.45 V | 100 W |
+| `max_cell_voltage` at or above 3.55 V | Charging paused for measurement |
 
-The effective limit is the most restrictive matching rule. For example, at
-96 % SOC the limit is normally 200 W, but if the highest cell has already
-reached 3.45 V the limit becomes 90 W.
+SOC is intentionally ignored in this path. The protection is based only on cell
+voltage so an incorrect SOC report cannot start or stop the top-charge logic.
 
 #### Voltage taper latch
 
-When `max_cell_voltage` reaches 3.45 V, the battery enters the 90 W voltage
-taper. This taper is latched while the battery remains in the high-SOC/top
-balancing zone, so the charge power does not jump back up just because the cell
-voltage briefly settles below 3.45 V.
+When `max_cell_voltage` reaches 3.45 V, the battery enters the 100 W voltage
+taper. This taper is latched while the battery remains in the high-voltage zone,
+so charge power does not jump back up just because the cell voltage briefly
+settles below 3.45 V.
 
-The latch is cleared only after the battery leaves the top-balancing zone:
+The latch is cleared only after `max_cell_voltage` falls below 3.45 V.
 
-- SOC falls below 95 %, and
-- `max_cell_voltage` is below 3.45 V.
+#### Pause and final discharge
 
-#### Pause and resume behavior
+If `max_cell_voltage` reaches 3.55 V, charging is paused for that battery. The
+controller waits 60 seconds, records `delta_V = Vmax - Vmin`, then discharges the
+battery at 25 W until `max_cell_voltage` falls to 3.42 V. After that final
+discharge the battery is released back to normal control.
 
-If `max_cell_voltage` reaches 3.60 V, charging is paused for that battery. This
-is a per-battery charge block, so the controller writes 0 W charge to that unit
-while still allowing other eligible batteries to charge.
+#### Daily high-voltage exposure limit
 
-Charging resumes only when `max_cell_voltage` settles back to 3.50 V or below.
-After resuming, the battery remains in the latched 90 W voltage taper while it
-is still in the high-SOC/top-balancing zone.
-
-This normal protection path does not force a discharge to lower the cell
-voltage. It waits for the voltage to settle naturally. Controlled discharge is
-used only by the active top-balancing profile described below.
-
-#### Daily high-SOC exposure limit
-
-For each battery, the controller tracks how long it has spent in the
-top-balancing zone during the current day. The zone is counted when either of
-these is true:
-
-- SOC is at or above 95 %, or
-- `max_cell_voltage` is at or above 3.45 V.
-
-After 4 hours in that zone on the same day, normal automatic charging is no
-longer extended for that battery. This prevents normal use from keeping a
-battery at high SOC for too long.
-
-The daily limit does not block the weekly/manual full-charge balancing path once
-that path has explicitly unlocked charging to 100 %. It also does not block the
-active top-balancing profile when the user intentionally sets a battery's normal
-max SOC to 100 %. It is meant to protect normal operation, not to prevent an
-intentional full-charge balancing run.
+For each battery, the controller tracks how long it has spent in the top-voltage
+zone during the current day. The zone is counted when `max_cell_voltage` is at
+or above 3.45 V. After 4 hours in that zone on the same day, normal automatic
+charging is no longer extended for that battery.
 
 ### Active top-balancing profile
 
-Active top-balancing is used in two situations:
+Active top-balancing is used in these situations:
 
-- **Normal max SOC set to 100 %**: per battery, when that battery reaches 100 %
-  or confirmed BMS cutoff near the top.
+- **Normal max SOC set to 100 %**: per battery, when that battery reaches the
+  3.55 V measurement point.
 - **Weekly full charge day or manual full-charge trigger**: globally, after all
-  participating batteries have reached 100 % or confirmed BMS cutoff near the top.
-- **Scheduled 48-hour active balance mode**: per battery, when the per-battery
-  switch is enabled and the selected weekday arrives.
+  participating batteries reach the top by BMS cutoff or `max_cell_voltage >= 3.55 V`.
+- **Active balance mode**: per battery, when the per-battery switch is enabled.
 
-Once active, the controller uses `max_cell_voltage` to keep cells in the
-top-balancing window:
+Once active, the controller uses voltages in V throughout:
 
 | Condition for one battery | Command |
 |---|---:|
-| `max_cell_voltage <= 3.45 V` | Enter 90 W charge |
-| During 90 W charge, until `max_cell_voltage >= 3.53 V` | Continue 90 W charge |
-| `3.53 V <= max_cell_voltage < 3.59 V` | Hold charge at 30 W |
-| Lost/idle phase, full SOC, inverter standby, near-zero real power and `max_cell_voltage > 3.45 V` | Discharge at 30 W |
-| High SOC, active charge/hold, inverter standby and near-zero real power from `max_cell_voltage >= 3.58 V` | Discharge at 30 W |
-| `max_cell_voltage >= 3.62 V` | Discharge at 30 W as a safety limit |
-| During discharge, until `max_cell_voltage <= 3.45 V` | Continue 30 W discharge |
+| Before `max_cell_voltage >= 3.45 V` | Normal PD charging to the top |
+| `max_cell_voltage >= 3.45 V` | Enter regulated balance charge |
+| Regulated charge until `max_cell_voltage >= 3.55 V` | Charge at 50 W |
+| At `max_cell_voltage >= 3.55 V` | Stop and wait 60 s |
+| After wait, `delta_V > 0.03 V` | Discharge at 25 W to 3.49 V, then retry charge |
+| After wait, `delta_V <= 0.03 V` | Final discharge at 25 W to 3.42 V and finish |
+| If the BMS rejects charge | Continue discharging and lower the retry voltage by 0.01 V |
 
-The 3.45/3.53 V split is intentional: after a balancing discharge, the
-controller does not request charge again until the highest cell has fallen to
-3.45 V, avoiding a premature retry while the BMS still considers the battery
-full. After an integration reload or restart, the scheduled mode restores the
-last persisted per-battery phase (`CHARGE`, `HOLD` or `DISCHARGE`). If no phase
-was persisted and the controller is left idling, it reconstructs discharge when
-it sees full SOC, standby, near-zero real power and `max_cell_voltage` still
-above 3.45 V. This recovery path does not apply during an active charge phase.
-Once 90 W charge starts, it continues until 3.53 V and then falls back to 30 W hold charge.
-`3.62 V` remains the hard safety limit for batteries that can reach it. If the
-BMS stops accepting charge while the controller is charging or holding charge at
-high SOC and the inverter goes to standby, the controller treats that as a
-signal to discharge and start a new micro-cycle even before the highest cell
-reaches `3.62 V`.
-
-The normal `max_soc=100 %` case keeps running while the battery remains
-configured to 100 % and no higher-priority mode takes over. When solar charge
-delay is enabled, it exits per battery once the PD input detects household/grid
-demand above the active target plus deadband, so normal PD control can serve the
-house.
-
-It also exits or pauses per battery when:
-
-- cell-voltage data is no longer available,
-- the battery no longer has `max_soc` set to 100 %,
-- the battery no longer has valid data,
-- a weekly/manual full-charge run starts, which takes priority.
-
-The weekly/manual full-charge case exits globally after 4 hours of active
-balancing. If cell-voltage data is unavailable for a battery during this phase,
-that battery is held at 0 W until the data returns or the 4-hour window finishes.
-
-#### Scheduled 48-hour balance mode
-
-Each battery exposes:
-
-- a switch to enable or disable the scheduled active balance mode,
-- a day selector that chooses when the 48-hour run starts.
-
-When the selected day arrives, that battery is reserved by the balance mode and
-is excluded from normal PD allocation. Other batteries can still be used by the
-PD controller. The mode uses the same 90/30/30 W profile as weekly full charge
-balancing and exits when either:
-
-- the cell delta falls to the reasonable range (`delta_mV <= 50`), or
-- 48 hours have elapsed.
-
-Changing the selected day clears the "completed today" marker so a newly
-selected day can run again. Disabling the switch stops the current run without
-marking it complete.
+The active-control logic measures `delta_V = max_cell_voltage - min_cell_voltage`.
+It does not convert this value to mV. The active mode no longer stops after 48
+hours; it runs until `delta_V <= 0.03 V` after the 3.55 V measurement point, or
+until the user disables the switch. The current phase is persisted so the mode
+continues in the correct phase after a Home Assistant restart.
 
 #### Diagnostics
 
@@ -164,26 +92,25 @@ attribute with per-battery details:
 | `daily_limit_h` | Current daily exposure limit, normally 4 h |
 | `paused` | Whether charging is currently paused by high cell voltage |
 | `max_cell_voltage` / `min_cell_voltage` | Current cell voltage extremes |
-| `delta_mV` | Current voltage spread between highest and lowest cell |
-| `voltage_taper_latched` | Whether the 90 W voltage taper is latched |
-| `active_balance_phase` | Current normal `max_soc=100 %` active-balancing phase, if any |
+| `delta_V` | Current voltage spread between highest and lowest cell |
+| `voltage_taper_latched` | Whether the 100 W voltage taper is latched |
+| `active_balance_phase` | Current active-balancing phase, if any |
 | `charge_limit_w` | Effective per-battery charge limit before allocation |
-
 ### OCV reading sequence (weekly full charge day)
 
 After the weekly full charge has completed its active top-balancing phase, the
 cell balance monitor can still take the formal OCV reading used for long-term
 health tracking. At that point the integration:
 
-1. **Holds discharge** — prevents the battery from discharging so the cells can rest under no-load conditions.
-2. **Waits 15 minutes** — allows BMS active balancing to settle and surface voltages to stabilise.
-3. **Checks stability** — requires at least 5 consecutive polls with power below 50 W and voltage change below 5 mV between polls.
-4. **Takes the reading** — records `delta_mV = (Vmax − Vmin) × 1000`.
-5. **Releases discharge** — unless the result is orange (see thresholds below).
+1. **Holds discharge** â€” prevents the battery from discharging so the cells can rest under no-load conditions.
+2. **Waits 15 minutes** â€” allows BMS active balancing to settle and surface voltages to stabilise.
+3. **Checks stability** â€” requires at least 5 consecutive polls with power below 50 W and voltage change below 5 mV between polls.
+4. **Takes the reading** â€” records `delta_mV = (Vmax âˆ’ Vmin) Ã— 1000`.
+5. **Releases discharge** â€” unless the result is orange (see thresholds below).
 
 ### Orange hold (2.5-hour passive balancing)
 
-If the reading lands in the orange zone (100–149 mV), discharge remains blocked for 2.5 hours to let passive balancing work. After the hold period a follow-up reading is taken and discharge is released regardless of the result.
+If the reading lands in the orange zone (100â€“149 mV), discharge remains blocked for 2.5 hours to let passive balancing work. After the hold period a follow-up reading is taken and discharge is released regardless of the result.
 
 ### Opportunistic readings
 
@@ -193,10 +120,10 @@ On days other than the weekly full charge day, if the battery is already at 100 
 
 | Status | Delta range | Meaning |
 |---|---|---|
-| 🟢 Green | < 50 mV | Good balance |
-| 🟡 Yellow | 50 – 99 mV | Minor imbalance — monitor over time |
-| 🟠 Orange | 100 – 149 mV | Moderate imbalance — 2.5 h passive balancing hold initiated |
-| 🔴 Red | ≥ 150 mV | High imbalance |
+| ðŸŸ¢ Green | < 50 mV | Good balance |
+| ðŸŸ¡ Yellow | 50 â€“ 99 mV | Minor imbalance â€” monitor over time |
+| ðŸŸ  Orange | 100 â€“ 149 mV | Moderate imbalance â€” 2.5 h passive balancing hold initiated |
+| ðŸ”´ Red | â‰¥ 150 mV | High imbalance |
 
 Thresholds are fixed and apply equally to all LFP cell chemistries.
 
@@ -206,10 +133,10 @@ The integration sends Home Assistant persistent notifications for the following 
 
 | Event | Notification title |
 |---|---|
-| Orange or red reading | ⚠️ Cell imbalance — {battery name} |
-| Orange persists after 2.5 h hold | ⚠️ Cell imbalance persists — {battery name} |
-| Red on 2 or more consecutive charges | 🔴 Possible degraded cell — {battery name} |
-| Rising trend with average above 75 mV | 📈 Rising imbalance trend — {battery name} |
+| Orange or red reading | âš ï¸ Cell imbalance â€” {battery name} |
+| Orange persists after 2.5 h hold | âš ï¸ Cell imbalance persists â€” {battery name} |
+| Red on 2 or more consecutive charges | ðŸ”´ Possible degraded cell â€” {battery name} |
+| Rising trend with average above 75 mV | ðŸ“ˆ Rising imbalance trend â€” {battery name} |
 
 ## Sensor entities
 
@@ -218,8 +145,8 @@ Five sensor entities are created per battery when the feature is enabled:
 | Entity | Description | Unit |
 |---|---|---|
 | `sensor.*_cell_delta` | Voltage spread between max and min cell | mV |
-| `sensor.*_balance_status` | Balance result: `green` / `yellow` / `orange` / `red` | — |
-| `sensor.*_delta_trend` | Trend over the last formal readings: `rising` / `stable` / `falling` | — |
+| `sensor.*_balance_status` | Balance result: `green` / `yellow` / `orange` / `red` | â€” |
+| `sensor.*_delta_trend` | Trend over the last formal readings: `rising` / `stable` / `falling` | â€” |
 | `sensor.*_last_balance_read` | Timestamp of the last reading | timestamp |
 | `sensor.*_delta_avg_4w` | Rolling average of the last 4 formal readings | mV |
 
@@ -227,7 +154,7 @@ Values are restored from persistent storage after a Home Assistant restart so se
 
 ## Technical notes
 
-- The voltage spike visible at 100 % SOC (before the wait period) is normal BMS active balancing behaviour — not a real imbalance. The 15-minute wait ensures the reading is taken at true open-circuit voltage.
+- The voltage spike visible at 100 % SOC (before the wait period) is normal BMS active balancing behaviour â€” not a real imbalance. The 15-minute wait ensures the reading is taken at true open-circuit voltage.
 - Up to 52 readings are stored per battery (approximately one year of weekly charges).
 - The 4-week average and trend are calculated from formal readings only (not opportunistic), so they reflect the pattern at true open-circuit voltage.
 

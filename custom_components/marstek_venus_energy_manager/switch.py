@@ -1,4 +1,4 @@
-"""Switch platform for the Marstek Venus Energy Manager integration."""
+﻿"""Switch platform for the Marstek Venus Energy Manager integration."""
 from __future__ import annotations
 
 import logging
@@ -307,7 +307,7 @@ class BatteryFullChargeVoltageTaperSwitch(SwitchEntity):
 
 
 class BatteryActiveBalanceModeSwitch(SwitchEntity):
-    """Switch enabling scheduled 48h active balancing for one battery."""
+    """Switch enabling active balancing for one battery."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, controller, coordinator) -> None:
         self.hass = hass
@@ -335,7 +335,7 @@ class BatteryActiveBalanceModeSwitch(SwitchEntity):
 
     async def async_turn_off(self, **kwargs) -> None:
         self._persist(False)
-        if self.controller._is_active_balance_mode_running(self.coordinator):
+        if self.controller._active_balance_mode_started(self.coordinator):
             await self.controller._complete_active_balance_mode(
                 self.coordinator,
                 "disabled",
@@ -600,8 +600,8 @@ class ChargeDelaySwitch(SwitchEntity):
 class ExcludedDeviceEnabledSwitch(SwitchEntity):
     """Switch to enable/disable an individual excluded device at runtime.
 
-    ON  = Device is active — its power affects battery charge/discharge calculations.
-    OFF = Device is ignored — battery sees raw home sensor power for this device.
+    ON  = Device is active â€” its power affects battery charge/discharge calculations.
+    OFF = Device is ignored â€” battery sees raw home sensor power for this device.
     """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, index: int) -> None:
@@ -681,7 +681,7 @@ class ExcludedDeviceSolarSurplusSwitch(SwitchEntity):
     """Switch to toggle solar surplus priority for an excluded device at runtime.
 
     ON  = Battery does NOT charge with solar surplus while this device is consuming
-          (solar goes to the device first — EV/priority mode).
+          (solar goes to the device first â€” EV/priority mode).
     OFF = Battery charges normally with solar surplus regardless of this device.
     """
 

@@ -1,4 +1,4 @@
-# Weekly full charge
+﻿# Weekly full charge
 
 Charges batteries to **100% once a week** to balance the cells and maintain battery health (cell balancing).
 
@@ -7,8 +7,8 @@ Charges batteries to **100% once a week** to balance the cells and maintain batt
 1. On the configured day of the week, if the usual max SOC is below 100%, the integration temporarily raises the charging cutoff limit to 100%.
 2. The battery charges until all available batteries reach 100% SOC or the BMS has clearly stopped charging near the top.
 3. Once the top is reached, the integration starts active top-balancing instead of immediately reverting to the configured max SOC.
-4. Active balancing uses the same per-battery cell-voltage profile documented in [Cell balance monitor](cell-balance-monitor.md): 90 W charge, 30 W hold charge and 30 W discharge micro-cycles.
-5. The weekly run keeps active balancing for 4 hours.
+4. Active balancing uses the voltage profile documented in [Cell balance monitor](cell-balance-monitor.md): 50 W charge to 3.55 V, a 60 s balance measurement, and 25 W discharge.
+5. The weekly run completes after the final 25 W discharge lowers `max_cell_voltage` to 3.42 V.
 6. After completion, the max SOC limit automatically reverts to the user's configured value.
 
 If cell-voltage data is not available for a battery during the balancing phase, that battery is held at 0 W until the data returns or the 4-hour window finishes.

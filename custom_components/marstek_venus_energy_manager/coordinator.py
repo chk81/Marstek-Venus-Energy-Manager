@@ -92,6 +92,15 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         self.active_balance_mode_start_delta_source = None
         self.active_balance_mode_start_max_cell_voltage = None
         self.active_balance_mode_start_min_cell_voltage = None
+        self.active_balance_mode_last_cutoff_ts = None
+        self.active_balance_mode_last_cutoff_delta_mv = None
+        self.active_balance_mode_last_cutoff_delta_v = None
+        self.active_balance_mode_last_cutoff_source = None
+        self.active_balance_mode_last_cutoff_max_cell_voltage = None
+        self.active_balance_mode_last_cutoff_min_cell_voltage = None
+        self.active_balance_mode_last_cutoff_soc = None
+        self.active_balance_mode_wait_started_ts = None
+        self.active_balance_mode_retry_voltage = None
         self._scan_counter = 0
         self.lock = asyncio.Lock()
         self._is_shutting_down = False  # Flag to suppress errors during shutdown
@@ -262,7 +271,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         new_data = dict(self._config_entry.data)
         batteries = [dict(b) for b in new_data.get("batteries", [])]
         for battery in batteries:
-            if battery.get("host") == self.host:
+            if battery.get("host") == self.host and battery.get("port") == self.port:
                 battery["rs485_user_disabled"] = value
                 break
         new_data["batteries"] = batteries
@@ -275,7 +284,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         new_data = dict(self._config_entry.data)
         batteries = [dict(b) for b in new_data.get("batteries", [])]
         for battery in batteries:
-            if battery.get("host") == self.host:
+            if battery.get("host") == self.host and battery.get("port") == self.port:
                 battery[key] = value
                 break
         new_data["batteries"] = batteries

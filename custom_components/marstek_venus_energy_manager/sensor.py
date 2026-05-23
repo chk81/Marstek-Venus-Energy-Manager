@@ -1120,7 +1120,7 @@ class IntegrationStatusSensor(SensorEntity):
 
 
 class NonResponsiveBatteriesSensor(SensorEntity):
-    """Diagnostic sensor showing batteries excluded due to non-responsive behavior."""
+    """Diagnostic sensor showing batteries that are unreachable or non-delivering."""
 
     def __init__(
         self, hass: HomeAssistant, entry: ConfigEntry, controller, coordinators: list
@@ -1140,7 +1140,7 @@ class NonResponsiveBatteriesSensor(SensorEntity):
 
     @property
     def native_value(self) -> str:
-        """Return names of excluded batteries, or 'None' if all are healthy."""
+        """Return names of non-responsive batteries, or 'None' if all are healthy."""
         names = self._controller.non_responsive_battery_names
         return ", ".join(names) if names else "None"
 
@@ -1152,18 +1152,29 @@ class NonResponsiveBatteriesSensor(SensorEntity):
         attrs = {}
         for coordinator in self._coordinators:
             info = self._controller._non_responsive_batteries.get(coordinator)
+            unreachable = (
+                not coordinator.is_available
+                and not getattr(coordinator, "_is_shutting_down", False)
+                and getattr(coordinator, "_consecutive_failures", 0) > 0
+            )
             if info and info.get("excluded_at") is not None:
                 elapsed_min = (now - info["excluded_at"]).total_seconds() / 60
                 remaining_min = max(0.0, info["cooldown_minutes"] - elapsed_min)
                 attrs[coordinator.name] = {
                     "excluded": True,
+                    "unreachable": unreachable,
+                    "reason": "non_delivery",
                     "cooldown_minutes": info["cooldown_minutes"],
                     "remaining_minutes": round(remaining_min, 1),
+                    "consecutive_failures": getattr(coordinator, "_consecutive_failures", 0),
                 }
             else:
                 attrs[coordinator.name] = {
-                    "excluded": False,
+                    "excluded": unreachable,
+                    "unreachable": unreachable,
+                    "reason": "connection_unavailable" if unreachable else None,
                     "fail_count": info["fail_count"] if info else 0,
+                    "consecutive_failures": getattr(coordinator, "_consecutive_failures", 0),
                 }
         return attrs
 

@@ -1,64 +1,64 @@
-# Configuración de baterías
+﻿# ConfiguraciÃ³n de baterÃ­as
 
-## Número de baterías
+## NÃºmero de baterÃ­as
 
-Selecciona cuántas unidades Marstek Venus tienes (1–6). La integración te pedirá configurar cada una por separado.
+Selecciona cuÃ¡ntas unidades Marstek Venus tienes (1â€“6). La integraciÃ³n te pedirÃ¡ configurar cada una por separado.
 
-![Control de número de baterías](../assets/screenshots/configuration/battery-slider.png){ width="650"  style="display: block; margin: 0 auto;"}
+![Control de nÃºmero de baterÃ­as](../assets/screenshots/configuration/battery-slider.png){ width="650"  style="display: block; margin: 0 auto;"}
 
 ---
 
-## Parámetros por batería
+## ParÃ¡metros por baterÃ­a
 
-| Parámetro | Descripción | Valor por defecto |
+| ParÃ¡metro | DescripciÃ³n | Valor por defecto |
 |---|---|---|
-| **Nombre** | Nombre identificativo (p. ej. "Venus 1") | — |
-| **Host** | IP del conversor Modbus TCP | — |
+| **Nombre** | Nombre identificativo (p. ej. "Venus 1") | â€” |
+| **Host** | IP del conversor Modbus TCP | â€” |
 | **Puerto** | Puerto TCP Modbus | `502` |
-| **Versión** | Modelo de la batería | — |
-| **Potencia máx. carga/descarga** | Potencia nominal de la instalación | — |
-| **SOC máximo** | Detiene la carga al alcanzar este % | `100 %` |
-| **SOC mínimo** | Detiene la descarga al alcanzar este % | `12 %` |
-| **Histéresis de carga** | Margen para evitar ciclos rápidos cerca del límite | — |
-| **Umbral offgrid backup** | Carga offgrid mínima (W) para considerarse un evento de backup activo | `50 W` |
+| **VersiÃ³n** | Modelo de la baterÃ­a | â€” |
+| **Potencia mÃ¡x. carga/descarga** | Potencia nominal de la instalaciÃ³n | â€” |
+| **SOC mÃ¡ximo** | Detiene la carga al alcanzar este % | `100 %` |
+| **SOC mÃ­nimo** | Detiene la descarga al alcanzar este % | `12 %` |
+| **HistÃ©resis de carga** | Margen para evitar ciclos rÃ¡pidos cerca del lÃ­mite | â€” |
+| **Umbral offgrid backup** | Carga offgrid mÃ­nima (W) para considerarse un evento de backup activo | `50 W` |
 
-### Versiones de batería
+### Versiones de baterÃ­a
 
-| Versión | Modelos |
+| VersiÃ³n | Modelos |
 |---|---|
 | `v1/v2` | Venus E v1, Venus E v2 |
 | `v3` | Venus E v3 |
 | `vA` | Venus A |
 | `vD` | Venus D |
 
-!!! warning "Potencia máxima 2500 W"
-    Usa el modo **2500 W** solo si tu instalación doméstica puede soportar esa potencia de forma segura.
+!!! warning "Potencia mÃ¡xima 2500 W"
+    Usa el modo **2500 W** solo si tu instalaciÃ³n domÃ©stica puede soportar esa potencia de forma segura.
 
-![Formulario de conexión a la batería](../assets/screenshots/configuration/battery-connection-form.png){ width="650"  style="display: block; margin: 0 auto;"}
-![Formulario de configuración de batería](../assets/screenshots/configuration/battery-config-form.png){ width="650"  style="display: block; margin: 0 auto;"}
+![Formulario de conexiÃ³n a la baterÃ­a](../assets/screenshots/configuration/battery-connection-form.png){ width="650"  style="display: block; margin: 0 auto;"}
+![Formulario de configuraciÃ³n de baterÃ­a](../assets/screenshots/configuration/battery-config-form.png){ width="650"  style="display: block; margin: 0 auto;"}
 
 ---
 
-## SOC y límites de potencia en tiempo de ejecución
+## SOC y lÃ­mites de potencia en tiempo de ejecuciÃ³n
 
-Los valores de SOC máximo/mínimo y potencia máxima de carga/descarga se pueden ajustar en cualquier momento desde los sliders de la integración sin necesidad de reconfigurar. Los cambios se persisten y se restauran en cada reinicio de Home Assistant.
+Los valores de SOC mÃ¡ximo/mÃ­nimo y potencia mÃ¡xima de carga/descarga se pueden ajustar en cualquier momento desde los sliders de la integraciÃ³n sin necesidad de reconfigurar. Los cambios se persisten y se restauran en cada reinicio de Home Assistant.
 
-Si elevas el **SOC máximo** de una batería al `100 %`, esa batería ejecuta el mismo perfil de balanceo activo que usa la carga semanal completa cuando llega a la parte alta. Se evalúa por batería y usa microciclos de 90 W de carga, 30 W de carga de mantenimiento y 30 W de descarga según `max_cell_voltage`. Consulta [Monitor de equilibrio de celdas](../features/cell-balance-monitor.md#perfil-de-balanceo-activo) para las condiciones exactas de entrada y salida.
+Si elevas el **SOC máximo** de una batería al `100 %`, esa batería usa protección superior por tensión: throttle de carga a 100 W desde 3.45 V, medición de balance en 3.55 V y descarga final a 25 W hasta 3.42 V. Consulta [Monitor de equilibrio de celdas](../features/cell-balance-monitor.md#perfil-de-balanceo-activo) para las condiciones exactas de entrada y salida.
 
 ![Sliders de SOC y potencia](../assets/screenshots/configuration/battery-runtime-sliders.png){ width="650"  style="display: block; margin: 0 auto;"}
 
 ---
 
-## Umbral offgrid backup en tiempo de ejecución
+## Umbral offgrid backup en tiempo de ejecuciÃ³n
 
-La entidad numérica **Umbral Offgrid Backup** (visible en la tarjeta de dispositivo de cada batería, entre las entidades de configuración) permite ajustar el umbral en cualquier momento sin entrar al flujo de opciones. Auméntalo si tu batería tiene cargas permanentes pequeñas en el puerto offgrid — como un switch PoE, router o cámaras IP — que de otro modo mantendrían la batería permanentemente excluida del control PD.
+La entidad numÃ©rica **Umbral Offgrid Backup** (visible en la tarjeta de dispositivo de cada baterÃ­a, entre las entidades de configuraciÃ³n) permite ajustar el umbral en cualquier momento sin entrar al flujo de opciones. AumÃ©ntalo si tu baterÃ­a tiene cargas permanentes pequeÃ±as en el puerto offgrid â€” como un switch PoE, router o cÃ¡maras IP â€” que de otro modo mantendrÃ­an la baterÃ­a permanentemente excluida del control PD.
 
 | Escenario | Umbral recomendado |
 |---|---|
-| Sin cargas permanentes en offgrid | `0 W` (cualquier carga activa la exclusión) |
-| Cargas pequeñas (router + switch, ~20–40 W) | `50 W` (valor por defecto) |
-| Cargas más pesadas (NAS, AP, cámaras, ~80–120 W) | `150 W` |
+| Sin cargas permanentes en offgrid | `0 W` (cualquier carga activa la exclusiÃ³n) |
+| Cargas pequeÃ±as (router + switch, ~20â€“40 W) | `50 W` (valor por defecto) |
+| Cargas mÃ¡s pesadas (NAS, AP, cÃ¡maras, ~80â€“120 W) | `150 W` |
 
-!!! tip "Cómo funciona"
-    Cuando el switch **Función Backup** está activado y la carga offgrid medida supera el umbral, la batería queda excluida del control PD y se gestiona de forma autónoma. Se aplica un período de enfriamiento de 5 minutos tras bajar del umbral, para evitar enviar comandos inmediatamente después de que termine un evento de backup.
+!!! tip "CÃ³mo funciona"
+    Cuando el switch **FunciÃ³n Backup** estÃ¡ activado y la carga offgrid medida supera el umbral, la baterÃ­a queda excluida del control PD y se gestiona de forma autÃ³noma. Se aplica un perÃ­odo de enfriamiento de 5 minutos tras bajar del umbral, para evitar enviar comandos inmediatamente despuÃ©s de que termine un evento de backup.
 

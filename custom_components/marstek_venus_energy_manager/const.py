@@ -42,7 +42,7 @@ MULTI_BATTERY_MIN_ACTIVATION        = 0.50   # floor: never activate below this 
 MULTI_BATTERY_MAX_ACTIVATION        = 0.95
 # Keep additional batteries active long enough to avoid pulsing when bursty loads
 # repeatedly cross the split-load threshold. Refreshed while the split condition holds.
-MULTI_BATTERY_SELECTION_HOLD_CYCLES = 48      # ~2 min at the normal 2.5 s loop
+MULTI_BATTERY_SELECTION_HOLD_SECONDS = 120
 
 # Version-specific register map for control operations
 # Maps logical register names to physical addresses per battery version
@@ -1837,35 +1837,42 @@ BALANCE_TREND_ALERT_AVG_MV = 75.0   # avg must exceed this to fire a rising-tren
 
 # Optional normal full-charge protection.
 # When enabled per battery, slow charging only while the target is 100% and
-# cells enter the top voltage range. Active-balancing micro-cycles use their
-# own 90/30/30 W profile below and are intentionally separate.
-NORMAL_BALANCE_SOC_THRESHOLD = 95.0
+# cells enter the top voltage range. This is voltage-only; SOC is intentionally
+# ignored because some batteries report it unreliably near the top.
+NORMAL_BALANCE_SOC_THRESHOLD = 95.0  # legacy constant; no longer used for entry
 NORMAL_BALANCE_TAPER_CELL_VOLTAGE = 3.45
-NORMAL_BALANCE_SECOND_TAPER_CELL_VOLTAGE = 3.53
-NORMAL_BALANCE_PAUSE_CELL_VOLTAGE = 3.60
-NORMAL_BALANCE_RESUME_CELL_VOLTAGE = 3.50
-NORMAL_BALANCE_FIRST_CHARGE_POWER_W = 200
+NORMAL_BALANCE_SECOND_TAPER_CELL_VOLTAGE = 3.45  # legacy alias for single-step taper
+NORMAL_BALANCE_PAUSE_CELL_VOLTAGE = 3.55
+NORMAL_BALANCE_RESUME_CELL_VOLTAGE = 3.42
+NORMAL_BALANCE_FIRST_CHARGE_POWER_W = 100
 NORMAL_BALANCE_CHARGE_POWER_W = 100
 NORMAL_BALANCE_DAILY_MAX_SECONDS = 4 * 60 * 60
 NORMAL_BALANCE_MAX_TICK_SECONDS = 30
+NORMAL_BALANCE_MEASURE_WAIT_SECONDS = 60
+NORMAL_BALANCE_FINAL_DISCHARGE_POWER_W = 25
+NORMAL_BALANCE_FINAL_DISCHARGE_STOP_CELL_VOLTAGE = 3.42
 
 # Weekly full-charge active top-balancing.
 # Once the battery has reached the top, keep the cells in the balancing window
 # with gentle charge/discharge micro-cycles instead of only resting at 100% SOC.
-ACTIVE_BALANCE_TARGET_DELTA_MV = 50.0
+ACTIVE_BALANCE_TARGET_DELTA_V = 0.03
 ACTIVE_BALANCE_START_CELL_VOLTAGE = 3.45
 ACTIVE_BALANCE_CHARGE_RESUME_CELL_VOLTAGE = 3.45
-ACTIVE_BALANCE_CHARGE_STOP_CELL_VOLTAGE = 3.53
-ACTIVE_BALANCE_HOLD_CHARGE_STOP_CELL_VOLTAGE = 3.59
-ACTIVE_BALANCE_DISCHARGE_START_CELL_VOLTAGE = 3.62
-ACTIVE_BALANCE_BMS_CUTOFF_DISCHARGE_CELL_VOLTAGE = 3.58
-ACTIVE_BALANCE_DISCHARGE_STOP_CELL_VOLTAGE = 3.45
-ACTIVE_BALANCE_CHARGE_POWER_W = 90
-ACTIVE_BALANCE_HOLD_CHARGE_POWER_W = 30
-ACTIVE_BALANCE_DISCHARGE_POWER_W = 30
-ACTIVE_BALANCE_WEEKLY_SECONDS = 4 * 60 * 60
-ACTIVE_BALANCE_MODE_SECONDS = 48 * 60 * 60
-ACTIVE_BALANCE_MODE_TARGET_DELTA_MV = 50.0
+ACTIVE_BALANCE_CHARGE_STOP_CELL_VOLTAGE = 3.55
+ACTIVE_BALANCE_HOLD_CHARGE_STOP_CELL_VOLTAGE = 3.55
+ACTIVE_BALANCE_DISCHARGE_START_CELL_VOLTAGE = 3.55
+# Treat BMS charge cutoff as a discharge trigger only at the same maximum cell
+# voltage used by the hard safety limit.
+ACTIVE_BALANCE_BMS_CUTOFF_DISCHARGE_CELL_VOLTAGE = ACTIVE_BALANCE_DISCHARGE_START_CELL_VOLTAGE
+ACTIVE_BALANCE_DISCHARGE_STOP_CELL_VOLTAGE = 3.49
+ACTIVE_BALANCE_FINAL_DISCHARGE_STOP_CELL_VOLTAGE = 3.42
+ACTIVE_BALANCE_MEASURE_WAIT_SECONDS = 60
+ACTIVE_BALANCE_ADAPTIVE_RESUME_STEP_V = 0.01
+ACTIVE_BALANCE_ADAPTIVE_MIN_RESUME_CELL_VOLTAGE = 3.35
+ACTIVE_BALANCE_CHARGE_POWER_W = 50
+ACTIVE_BALANCE_HOLD_CHARGE_POWER_W = 0
+ACTIVE_BALANCE_DISCHARGE_POWER_W = 25
+ACTIVE_BALANCE_MODE_TARGET_DELTA_V = ACTIVE_BALANCE_TARGET_DELTA_V
 
 # Per-battery scheduled active balance mode.
 CONF_ACTIVE_BALANCE_MODE_ENABLED = "active_balance_mode_enabled"
