@@ -1,8 +1,8 @@
-﻿# Battery configuration
+# Battery configuration
 
 ## Number of batteries
 
-Select how many Marstek Venus units you have (1â€“6). The integration will ask you to configure each one separately.
+Select how many Marstek Venus units you have (1–6). The integration will ask you to configure each one separately.
 
 ![Number of Batteries slider](../assets/screenshots/configuration/battery-slider.png){ width="650"  style="display: block; margin: 0 auto;"}
 
@@ -13,14 +13,14 @@ Select how many Marstek Venus units you have (1â€“6). The integration will 
 
 | Parameter | Description | Default |
 |---|---|---|
-| **Name** | Unique identifier (e.g. "Venus 1") | â€” |
-| **Host** | IP address of the Modbus TCP converter | â€” |
+| **Name** | Unique identifier (e.g. "Venus 1") | — |
+| **Host** | IP address of the Modbus TCP converter | — |
 | **Port** | Modbus TCP port | `502` |
-| **Version** | Battery model | â€” |
-| **Max charge/discharge power** | Rated power of your setup | â€” |
+| **Version** | Battery model | — |
+| **Max charge/discharge power** | Rated power of your setup | — |
 | **Max SOC** | Stop charging at this percentage | `100 %` |
 | **Min SOC** | Stop discharging at this percentage | `12 %` |
-| **Charge hysteresis** | Margin to avoid rapid cycling near the charge limit | â€” |
+| **Charge hysteresis** | Margin to avoid rapid cycling near the charge limit | — |
 | **Backup offgrid threshold** | Minimum offgrid load (W) to be considered an active backup event | `50 W` |
 
 ### Battery versions
@@ -53,14 +53,13 @@ If you raise a battery's **Max SOC** to `100 %`, that battery uses voltage-based
 
 ## Backup offgrid threshold at runtime
 
-The **Backup Offgrid Threshold** number entity (visible on each battery's device card, under configuration entities) lets you adjust the threshold at any time without entering the options flow. Raise it if your battery has small permanent loads on its offgrid port â€” such as a PoE switch, router, or IP cameras â€” that would otherwise keep it permanently excluded from PD control.
+The **Backup Offgrid Threshold** number entity (visible on each battery's device card, under configuration entities) lets you adjust the threshold at any time without entering the options flow. Raise it if your battery has small permanent loads on its offgrid port — such as a PoE switch, router, or IP cameras — that would otherwise keep it permanently excluded from PD control.
 
 | Load scenario | Recommended threshold |
 |---|---|
 | No permanent offgrid loads | `0 W` (any load triggers exclusion) |
-| Small standby loads (router + switch, ~20â€“40 W) | `50 W` (default) |
-| Heavier permanent loads (NAS, AP, cameras, ~80â€“120 W) | `150 W` |
+| Small standby loads (router + switch, ~20–40 W) | `50 W` (default) |
+| Heavier permanent loads (NAS, AP, cameras, ~80–120 W) | `150 W` |
 
 !!! tip "How it works"
     When the **Backup Function** switch is ON and the measured offgrid load is **above** the threshold, the battery is excluded from PD control and manages itself autonomously. A 5-minute cooldown applies after the load drops back below the threshold, to avoid sending commands immediately after a backup event ends.
-
