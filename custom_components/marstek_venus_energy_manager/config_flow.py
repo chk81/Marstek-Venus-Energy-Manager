@@ -293,16 +293,16 @@ def _build_slot_step_b_schema(
             soc_max_def = b_prior.get("soc_max") or int(bcfg.get("max_soc") or DEFAULT_SLOT_SOC_MAX_CEILING)
             fields[vol.Required(
                 _slot_field_key(idx, "soc_min"),
-                default=_clamp(soc_min_def, DEFAULT_SLOT_SOC_MIN_FLOOR, DEFAULT_SLOT_SOC_MAX_CEILING),
+                default=_clamp(soc_min_def, DEFAULT_SLOT_SOC_MIN_FLOOR, 30),
             )] = NumberSelector(NumberSelectorConfig(
-                min=DEFAULT_SLOT_SOC_MIN_FLOOR, max=DEFAULT_SLOT_SOC_MAX_CEILING,
+                min=DEFAULT_SLOT_SOC_MIN_FLOOR, max=30,
                 step=1, mode=NumberSelectorMode.SLIDER,
             ))
             fields[vol.Required(
                 _slot_field_key(idx, "soc_max"),
-                default=_clamp(soc_max_def, DEFAULT_SLOT_SOC_MIN_FLOOR, DEFAULT_SLOT_SOC_MAX_CEILING),
+                default=_clamp(soc_max_def, 80, DEFAULT_SLOT_SOC_MAX_CEILING),
             )] = NumberSelector(NumberSelectorConfig(
-                min=DEFAULT_SLOT_SOC_MIN_FLOOR, max=DEFAULT_SLOT_SOC_MAX_CEILING,
+                min=80, max=DEFAULT_SLOT_SOC_MAX_CEILING,
                 step=1, mode=NumberSelectorMode.SLIDER,
             ))
         if needs_power:

@@ -1531,10 +1531,17 @@ class ChargeDischargeController:
             bms_cutoff = self._weekly_charge_mgr.is_battery_full(coordinator)
 
             if coordinator.enable_charge_hysteresis:
-                taper_at_top_voltage = (
-                    self._normal_balance_charge_paused.get(coordinator, False)
-                    and self._full_charge_voltage_taper_applies(coordinator)
-                )
+                # Activate hysteresis when cell voltage hits the BMS cutoff threshold,
+                # regardless of whether the charge tapper feature is enabled.
+                # Uses effective_max_soc so slot/predictive overrides are respected.
+                taper_at_top_voltage = False
+                if effective_max_soc >= 100:
+                    _vmax = coordinator.data.get("max_cell_voltage")
+                    if _vmax is not None:
+                        try:
+                            taper_at_top_voltage = float(_vmax) >= NORMAL_BALANCE_PAUSE_CELL_VOLTAGE
+                        except (TypeError, ValueError):
+                            pass
                 if current_soc >= coordinator.max_soc or bms_cutoff or taper_at_top_voltage:
                     coordinator._hysteresis_active = True
                     if coordinator._hysteresis_base_soc is None:
@@ -1801,7 +1808,14 @@ class ChargeDischargeController:
                         coordinator._hysteresis_base_soc = None
                     else:
                         # Normal hysteresis logic
-                        if current_soc >= coordinator.max_soc:
+                        _vmax_hysteresis = coordinator.data.get("max_cell_voltage") if coordinator.data else None
+                        _taper_at_top = False
+                        if coordinator.max_soc >= 100 and _vmax_hysteresis is not None:
+                            try:
+                                _taper_at_top = float(_vmax_hysteresis) >= NORMAL_BALANCE_PAUSE_CELL_VOLTAGE
+                            except (TypeError, ValueError):
+                                pass
+                        if current_soc >= coordinator.max_soc or _taper_at_top:
                             coordinator._hysteresis_active = True
                             # Capture the actual SOC that triggered hysteresis (may be 100% after full charge)
                             if coordinator._hysteresis_base_soc is None:

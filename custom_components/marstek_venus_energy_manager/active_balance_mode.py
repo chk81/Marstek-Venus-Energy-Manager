@@ -119,7 +119,13 @@ class ActiveBalanceModeManager:
         coordinator,
         phase: str,
     ) -> bool:
-        """Return True when the BMS ACKs a charge setpoint but delivers no charge."""
+        """Return True when the BMS rejects a charge command but delivers no charge.
+
+        Two BMS OVP failure modes are covered:
+        - BMS keeps inv_state=2 (Charge mode) while delivering 0W after OVP cut.
+        - BMS reverts both force_mode and set_charge_power registers; intent is
+          tracked via coordinator._ab_charge_cmd_active set at end of each cycle.
+        """
         if phase not in {"CHARGE", "HOLD"}:
             return False
         data = coordinator.data or {}
@@ -135,12 +141,13 @@ class ActiveBalanceModeManager:
                     set_charge_power is not None
                     and float(set_charge_power) > 0
                 )
+                or getattr(coordinator, "_ab_charge_cmd_active", False)
             )
             return (
                 charge_was_requested
                 and power is not None
                 and abs(float(power)) <= 10
-                and inv_state == 1
+                and inv_state in {1, 2}
             )
         except (TypeError, ValueError):
             return False
@@ -375,8 +382,26 @@ class ActiveBalanceModeManager:
         final_cutoff_ts = getattr(coordinator, "active_balance_mode_last_cutoff_ts", None)
         final_cutoff_soc = getattr(coordinator, "active_balance_mode_last_cutoff_soc", None)
         if final_delta is None:
-            final_vmax, final_vmin, final_delta = self._active_balance_mode_cell_values(coordinator)
-            final_delta_source = "instant"
+            monitor = getattr(self._controller, "_balance_monitor", None)
+            if monitor is not None:
+                readings = monitor.get_recent_readings(coordinator.host, limit=1)
+                if readings:
+                    last = readings[-1]
+                    try:
+                        last_delta_mv = float(last.get("delta_mV"))
+                        last_vmax = float(last.get("vmax_V"))
+                        last_vmin = float(last.get("vmin_V"))
+                    except (TypeError, ValueError):
+                        last_delta_mv = None
+                        last_vmax = None
+                        last_vmin = None
+                    if last_delta_mv is not None:
+                        final_delta = last_delta_mv / 1000.0
+                        final_vmax = last_vmax
+                        final_vmin = last_vmin
+                        ts = last.get("ts")
+                        final_delta_source = f"measurement_3.58V ({ts})" if ts else "measurement_3.58V"
+                        final_cutoff_ts = ts
         start_delta = getattr(coordinator, "active_balance_mode_start_delta_mv", None)
         start_delta_source = getattr(coordinator, "active_balance_mode_start_delta_source", None)
         start_vmax = getattr(coordinator, "active_balance_mode_start_max_cell_voltage", None)
@@ -917,6 +942,7 @@ class ActiveBalanceModeManager:
                 },
             )
 
+            coordinator._ab_charge_cmd_active = charge_power > 0
             await self._controller._set_battery_power(
                 coordinator,
                 charge_power,
