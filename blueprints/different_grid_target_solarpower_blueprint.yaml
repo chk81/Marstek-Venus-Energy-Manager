@@ -11,7 +11,8 @@ blueprint:
     # ── Sensoren ─────────────────────────────────────────────────────────────
     power_sensor:
       name: "Hysterese-Sensor"
-      description: "Sensor für die Hysterese-Schwellenwerte (z.B. PV-Leistung)."
+      description: "Sensor für die Hysterese-Schwellenwerte (z.B. Solar Forecast)."
+      default: sensor.solar_forecast
       selector:
         entity:
           filter:
@@ -20,7 +21,7 @@ blueprint:
     charge_power_sensor:
       name: "System Charge Power Sensor"
       description: "Marstek Venus Ladeleistung."
-      default: sensor.marstek_venus_system_system_charge_power
+      default: number.marstek_venus_1_ladeleistung
       selector:
         entity:
           filter:
@@ -29,7 +30,7 @@ blueprint:
     discharge_power_sensor:
       name: "System Discharge Power Sensor"
       description: "Marstek Venus Entladeleistung."
-      default: sensor.marstek_venus_system_system_discharge_power
+      default: number.marstek_venus_1_entladeleistung
       selector:
         entity:
           filter:
