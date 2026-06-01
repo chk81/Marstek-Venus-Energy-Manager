@@ -40,7 +40,7 @@ blueprint:
     target_grid_power_number:
       name: "PD Target Grid Power Number"
       description: "Marstek Venus PD Target Grid Power Number Entity."
-      default: number.marstek_venus_system_pd_target_grid_power
+      default: number.marstek_venus_system_pd_ziel_netzleistung
       selector:
         entity:
           filter:
