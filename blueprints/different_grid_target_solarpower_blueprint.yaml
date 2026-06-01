@@ -1,19 +1,40 @@
 blueprint:
-  name: "Hysterese Grid Target Steuerung"
+  name: "Hysterese + Grid Target Steuerung"
   description: >
-    Schaltet den Grid Target basierend auf einem Sensor mit Hysterese-Schwellenwerten.
-    - Beim Einschalten (Sensor überschreitet obere Schwelle): Charging Grid Target setzen.
-    - Beim Ausschalten (Sensor unterschreitet untere Schwelle): Discharging Grid Target setzen.
+    Kombiniert zwei Logiken:
+    - Grid Target wird kontinuierlich angepasst je nachdem ob geladen oder entladen wird (wie Original-Blueprint).
+    - SOC-Grenzwert und Max. Entladeleistung werden per Hysterese-Schwellenwert umgeschaltet.
   domain: automation
   input:
+
+    # ── Sensoren ─────────────────────────────────────────────────────────────
     power_sensor:
-      name: "Leistungssensor"
-      description: "Sensor der die Hysterese auslöst (z.B. PV-Leistung)."
+      name: "Hysterese-Sensor"
+      description: "Sensor für die Hysterese-Schwellenwerte (z.B. PV-Leistung)."
       selector:
         entity:
           filter:
             domain: sensor
 
+    charge_power_sensor:
+      name: "System Charge Power Sensor"
+      description: "Marstek Venus Ladeleistung."
+      default: sensor.marstek_venus_system_system_charge_power
+      selector:
+        entity:
+          filter:
+            domain: sensor
+
+    discharge_power_sensor:
+      name: "System Discharge Power Sensor"
+      description: "Marstek Venus Entladeleistung."
+      default: sensor.marstek_venus_system_system_discharge_power
+      selector:
+        entity:
+          filter:
+            domain: sensor
+
+    # ── Entities ──────────────────────────────────────────────────────────────
     target_grid_power_number:
       name: "PD Target Grid Power Number"
       description: "Marstek Venus PD Target Grid Power Number Entity."
@@ -23,6 +44,25 @@ blueprint:
           filter:
             domain: number
 
+    charge_soc_limit:
+      name: "Lade-SOC-Grenzwert Entity"
+      description: "Entity für den Lade-SOC-Grenzwert."
+      default: number.marstek_venus_1_lade_soc_grenzwert
+      selector:
+        entity:
+          filter:
+            domain: number
+
+    max_discharge_power:
+      name: "Max. Entladeleistung Entity"
+      description: "Entity für die maximale Entladeleistung."
+      default: number.marstek_venus_1_max_entladeleistung
+      selector:
+        entity:
+          filter:
+            domain: number
+
+    # ── Hysterese-Schwellen ───────────────────────────────────────────────────
     upper_threshold:
       name: "Einschalt-Schwellenwert"
       description: "Sensor muss diesen Wert überschreiten um einzuschalten."
@@ -47,9 +87,22 @@ blueprint:
           unit_of_measurement: W
           mode: box
 
+    # ── Grid Target (kontinuierlich) ──────────────────────────────────────────
+    active_threshold_w:
+      name: "Active Power Threshold"
+      description: "Lade-/Entladewerte unterhalb dieser Schwelle werden ignoriert (Rauschen)."
+      default: 20
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 5
+          unit_of_measurement: W
+          mode: box
+
     charge_target_w:
       name: "Grid Target While Charging"
-      description: "Wird gesetzt wenn der Sensor den Einschalt-Schwellenwert überschreitet. Negative Werte = Export ins Netz."
+      description: "Wird gesetzt solange geladen wird. Negative Werte = Export ins Netz."
       default: -50
       selector:
         number:
@@ -61,11 +114,80 @@ blueprint:
 
     discharge_target_w:
       name: "Grid Target While Discharging"
-      description: "Wird gesetzt wenn der Sensor den Ausschalt-Schwellenwert unterschreitet. Positive Werte = Import aus dem Netz."
+      description: "Wird gesetzt solange entladen wird. Positive Werte = Import aus dem Netz."
       default: 50
       selector:
         number:
           min: -2500
+          max: 2500
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+    reset_when_idle:
+      name: "Grid Target zurücksetzen wenn idle"
+      description: "Grid Target auf Idle-Wert setzen wenn weder geladen noch entladen wird."
+      default: false
+      selector:
+        boolean:
+
+    idle_target_w:
+      name: "Idle Grid Target"
+      description: "Nur aktiv wenn 'Reset when idle' aktiviert ist."
+      default: 0
+      selector:
+        number:
+          min: -2500
+          max: 2500
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+    # ── SOC + Entladeleistung beim Einschalten ────────────────────────────────
+    charge_soc_limit_value:
+      name: "Lade-SOC-Grenzwert beim Einschalten"
+      description: "SOC-Grenzwert der beim Einschalten gesetzt wird (%)."
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+
+    charge_max_discharge_power_value:
+      name: "Max. Entladeleistung beim Einschalten"
+      description: "Maximale Entladeleistung die beim Einschalten gesetzt wird (W)."
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 2500
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+    # ── SOC + Entladeleistung beim Ausschalten ────────────────────────────────
+    discharge_soc_limit_value:
+      name: "Lade-SOC-Grenzwert beim Ausschalten"
+      description: "SOC-Grenzwert der beim Ausschalten gesetzt wird (%)."
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+
+    discharge_max_discharge_power_value:
+      name: "Max. Entladeleistung beim Ausschalten"
+      description: "Maximale Entladeleistung die beim Ausschalten gesetzt wird (W)."
+      default: 800
+      selector:
+        number:
+          min: 0
           max: 2500
           step: 10
           unit_of_measurement: W
@@ -76,8 +198,40 @@ variables:
   lower_threshold: !input lower_threshold
   charge_target_w: !input charge_target_w
   discharge_target_w: !input discharge_target_w
+  active_threshold_w: !input active_threshold_w
+  reset_when_idle: !input reset_when_idle
+  idle_target_w: !input idle_target_w
+  charge_soc_limit_value: !input charge_soc_limit_value
+  discharge_soc_limit_value: !input discharge_soc_limit_value
+  charge_max_discharge_power_value: !input charge_max_discharge_power_value
+  discharge_max_discharge_power_value: !input discharge_max_discharge_power_value
+  charge_power_sensor: !input charge_power_sensor
+  discharge_power_sensor: !input discharge_power_sensor
+  target_grid_power_number: !input target_grid_power_number
 
 triggers:
+  # Grid Target: kontinuierlich auf Lade-/Entladesensor reagieren
+  - trigger: numeric_state
+    entity_id: !input charge_power_sensor
+    above: !input active_threshold_w
+    id: charge_started
+  - trigger: numeric_state
+    entity_id: !input discharge_power_sensor
+    above: !input active_threshold_w
+    id: discharge_started
+  - trigger: numeric_state
+    entity_id: !input charge_power_sensor
+    below: !input active_threshold_w
+    id: charge_stopped
+  - trigger: numeric_state
+    entity_id: !input discharge_power_sensor
+    below: !input active_threshold_w
+    id: discharge_stopped
+  - trigger: homeassistant
+    event: start
+    id: homeassistant_start
+
+  # Hysterese: auf Hysterese-Sensor reagieren
   - trigger: state
     entity_id: !input power_sensor
     id: sensor_change
@@ -85,28 +239,38 @@ triggers:
 conditions:
   - condition: template
     value_template: >
-      {{ trigger.to_state.state not in ['unavailable', 'unknown', 'none']
-         and trigger.from_state.state not in ['unavailable', 'unknown', 'none'] }}
+      {{ trigger.id == 'sensor_change'
+         and trigger.to_state.state not in ['unavailable', 'unknown', 'none']
+         and trigger.from_state.state not in ['unavailable', 'unknown', 'none']
+         or trigger.id in ['charge_started', 'discharge_started', 'charge_stopped', 'discharge_stopped', 'homeassistant_start'] }}
 
 actions:
   - variables:
-      current: "{{ trigger.to_state.state | float(0) }}"
-      last: "{{ trigger.from_state.state | float(0) }}"
+      charge_w: "{{ states(charge_power_sensor) | float(0) }}"
+      discharge_w: "{{ states(discharge_power_sensor) | float(0) }}"
+      current_target_w: "{{ states(target_grid_power_number) | float(999999) }}"
+      hysterese_current: >
+        {% if trigger.id == 'sensor_change' %}
+          {{ trigger.to_state.state | float(0) }}
+        {% else %}
+          0
+        {% endif %}
+      hysterese_last: >
+        {% if trigger.id == 'sensor_change' %}
+          {{ trigger.from_state.state | float(0) }}
+        {% else %}
+          0
+        {% endif %}
 
   - choose:
+      # ── Grid Target: Entladen ─────────────────────────────────────────────
       - conditions:
           - condition: template
-            value_template: "{{ last < upper_threshold and current >= upper_threshold }}"
-        sequence:
-          - action: number.set_value
-            target:
-              entity_id: !input target_grid_power_number
-            data:
-              value: "{{ charge_target_w }}"
-
-      - conditions:
-          - condition: template
-            value_template: "{{ last >= lower_threshold and current < lower_threshold }}"
+            value_template: >
+              {{ trigger.id in ['discharge_started', 'charge_stopped', 'homeassistant_start']
+                 and (discharge_w | float(0)) > (active_threshold_w | float(0))
+                 and (discharge_w | float(0)) >= (charge_w | float(0))
+                 and (current_target_w | float(999999)) != (discharge_target_w | float(0)) }}
         sequence:
           - action: number.set_value
             target:
@@ -114,4 +278,73 @@ actions:
             data:
               value: "{{ discharge_target_w }}"
 
-mode: single
+      # ── Grid Target: Laden ────────────────────────────────────────────────
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id in ['charge_started', 'discharge_stopped', 'homeassistant_start']
+                 and (charge_w | float(0)) > (active_threshold_w | float(0))
+                 and (charge_w | float(0)) > (discharge_w | float(0))
+                 and (current_target_w | float(999999)) != (charge_target_w | float(0)) }}
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input target_grid_power_number
+            data:
+              value: "{{ charge_target_w }}"
+
+      # ── Grid Target: Idle ─────────────────────────────────────────────────
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id in ['charge_stopped', 'discharge_stopped', 'homeassistant_start']
+                 and reset_when_idle
+                 and (charge_w | float(0)) <= (active_threshold_w | float(0))
+                 and (discharge_w | float(0)) <= (active_threshold_w | float(0))
+                 and (current_target_w | float(999999)) != (idle_target_w | float(0)) }}
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input target_grid_power_number
+            data:
+              value: "{{ idle_target_w }}"
+
+      # ── Hysterese: Einschalten ────────────────────────────────────────────
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id == 'sensor_change'
+                 and hysterese_last < upper_threshold
+                 and hysterese_current >= upper_threshold }}
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input charge_soc_limit
+            data:
+              value: "{{ charge_soc_limit_value }}"
+          - action: number.set_value
+            target:
+              entity_id: !input max_discharge_power
+            data:
+              value: "{{ charge_max_discharge_power_value }}"
+
+      # ── Hysterese: Ausschalten ────────────────────────────────────────────
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id == 'sensor_change'
+                 and hysterese_last >= lower_threshold
+                 and hysterese_current < lower_threshold }}
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input charge_soc_limit
+            data:
+              value: "{{ discharge_soc_limit_value }}"
+          - action: number.set_value
+            target:
+              entity_id: !input max_discharge_power
+            data:
+              value: "{{ discharge_max_discharge_power_value }}"
+
+mode: restart
