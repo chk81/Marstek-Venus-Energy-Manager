@@ -15,7 +15,7 @@ blueprint:
       selector:
         entity:
           filter:
-            domain: number
+            domain: sensor
 
     charge_power_sensor:
       name: "System Charge Power Sensor"
@@ -33,7 +33,7 @@ blueprint:
       selector:
         entity:
           filter:
-            domain: sensor
+            domain: number
 
     # ── Entities ──────────────────────────────────────────────────────────────
     target_grid_power_number:
