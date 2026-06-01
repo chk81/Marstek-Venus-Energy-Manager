@@ -1,0 +1,117 @@
+blueprint:
+  name: "Hysterese Grid Target Steuerung"
+  description: >
+    Schaltet den Grid Target basierend auf einem Sensor mit Hysterese-Schwellenwerten.
+    - Beim Einschalten (Sensor überschreitet obere Schwelle): Charging Grid Target setzen.
+    - Beim Ausschalten (Sensor unterschreitet untere Schwelle): Discharging Grid Target setzen.
+  domain: automation
+  input:
+    power_sensor:
+      name: "Leistungssensor"
+      description: "Sensor der die Hysterese auslöst (z.B. PV-Leistung)."
+      selector:
+        entity:
+          filter:
+            domain: sensor
+
+    target_grid_power_number:
+      name: "PD Target Grid Power Number"
+      description: "Marstek Venus PD Target Grid Power Number Entity."
+      default: number.marstek_venus_system_pd_target_grid_power
+      selector:
+        entity:
+          filter:
+            domain: number
+
+    upper_threshold:
+      name: "Einschalt-Schwellenwert"
+      description: "Sensor muss diesen Wert überschreiten um einzuschalten."
+      default: 900
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+    lower_threshold:
+      name: "Ausschalt-Schwellenwert"
+      description: "Sensor muss diesen Wert unterschreiten um auszuschalten."
+      default: 950
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+    charge_target_w:
+      name: "Grid Target While Charging"
+      description: "Wird gesetzt wenn der Sensor den Einschalt-Schwellenwert überschreitet. Negative Werte = Export ins Netz."
+      default: -50
+      selector:
+        number:
+          min: -2500
+          max: 2500
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+    discharge_target_w:
+      name: "Grid Target While Discharging"
+      description: "Wird gesetzt wenn der Sensor den Ausschalt-Schwellenwert unterschreitet. Positive Werte = Import aus dem Netz."
+      default: 50
+      selector:
+        number:
+          min: -2500
+          max: 2500
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+variables:
+  upper_threshold: !input upper_threshold
+  lower_threshold: !input lower_threshold
+  charge_target_w: !input charge_target_w
+  discharge_target_w: !input discharge_target_w
+
+triggers:
+  - trigger: state
+    entity_id: !input power_sensor
+    id: sensor_change
+
+conditions:
+  - condition: template
+    value_template: >
+      {{ trigger.to_state.state not in ['unavailable', 'unknown', 'none']
+         and trigger.from_state.state not in ['unavailable', 'unknown', 'none'] }}
+
+actions:
+  - variables:
+      current: "{{ trigger.to_state.state | float(0) }}"
+      last: "{{ trigger.from_state.state | float(0) }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ last < upper_threshold and current >= upper_threshold }}"
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input target_grid_power_number
+            data:
+              value: "{{ charge_target_w }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ last >= lower_threshold and current < lower_threshold }}"
+        sequence:
+          - action: number.set_value
+            target:
+              entity_id: !input target_grid_power_number
+            data:
+              value: "{{ discharge_target_w }}"
+
+mode: single
