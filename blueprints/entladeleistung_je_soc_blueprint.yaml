@@ -1,0 +1,101 @@
+blueprint:
+  name: "Marstek Venus - Max. Entladeleistung nach SOC"
+  description: >
+    Passt die maximale Entladeleistung automatisch an den aktuellen SOC des Akkus an.
+    - SOC >= Schwellenwert: Entladeleistung Y
+    - SOC < Schwellenwert: Entladeleistung X
+  domain: automation
+  input:
+
+    soc_sensor:
+      name: "Akku SOC Sensor"
+      description: "Sensor der den aktuellen Ladestand des Akkus anzeigt (%)."
+      default: sensor.marstek_venus_1_soc
+      selector:
+        entity:
+          filter:
+            domain: sensor
+
+    max_discharge_power:
+      name: "Max. Entladeleistung Entity"
+      description: "Entity für die maximale Entladeleistung."
+      default: number.marstek_venus_1_max_entladeleistung
+      selector:
+        entity:
+          filter:
+            domain: number
+
+    soc_threshold:
+      name: "SOC-Schwellenwert"
+      description: "Unterhalb dieses SOC-Wertes wird Entladeleistung X gesetzt, ab diesem Wert Entladeleistung Y."
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+
+    discharge_power_below:
+      name: "Entladeleistung X (SOC unter Schwellenwert)"
+      description: "Maximale Entladeleistung wenn SOC < Schwellenwert (W)."
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 2500
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+    discharge_power_above:
+      name: "Entladeleistung Y (SOC ab Schwellenwert)"
+      description: "Maximale Entladeleistung wenn SOC >= Schwellenwert (W)."
+      default: 800
+      selector:
+        number:
+          min: 0
+          max: 2500
+          step: 10
+          unit_of_measurement: W
+          mode: box
+
+variables:
+  soc_sensor: !input soc_sensor
+  max_discharge_power: !input max_discharge_power
+  soc_threshold: !input soc_threshold
+  discharge_power_below: !input discharge_power_below
+  discharge_power_above: !input discharge_power_above
+
+triggers:
+  - trigger: state
+    entity_id: !input soc_sensor
+    id: soc_change
+  - trigger: homeassistant
+    event: start
+    id: homeassistant_start
+
+conditions:
+  - condition: template
+    value_template: >
+      {{ trigger.id == 'homeassistant_start'
+         or (trigger.to_state.state not in ['unavailable', 'unknown', 'none']
+             and trigger.from_state.state not in ['unavailable', 'unknown', 'none']) }}
+
+actions:
+  - variables:
+      current_soc: "{{ states(soc_sensor) | float(0) }}"
+      target_power: "{{ discharge_power_above if current_soc >= soc_threshold else discharge_power_below }}"
+      current_power: "{{ states(max_discharge_power) | float(-1) }}"
+
+  - condition: template
+    value_template: "{{ current_power != target_power }}"
+
+  - action: number.set_value
+    target:
+      entity_id: !input max_discharge_power
+    data:
+      value: "{{ target_power }}"
+
+mode: restart
