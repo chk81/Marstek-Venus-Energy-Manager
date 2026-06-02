@@ -22,7 +22,7 @@ from .const import (
     STORED_ENERGY_SENSOR_DEFINITIONS,
     CYCLE_SENSOR_DEFINITIONS,
     SOLAR_POWER_SENSOR_DEFINITIONS,
-    BATTERY_POWER_SENSOR_DEFINITIONS,
+    BATTERY_CELL_POWER_SENSOR_DEFINITIONS,
     CONF_ENABLE_CHARGE_DELAY,
     CONF_ENABLE_WEEKLY_FULL_CHARGE_DELAY,
     CONF_ENABLE_PREDICTIVE_CHARGING,
@@ -92,7 +92,7 @@ from .const import (
 )
 from .coordinator import MarstekVenusDataUpdateCoordinator
 from .aggregate_sensors import AGGREGATE_SENSOR_DEFINITIONS, MarstekVenusAggregateSensor, DailyGridAtMinSocSensor, SystemAlarmSensor
-from .calculated_sensors import MarstekVenusEfficiencySensor, MarstekVenusStoredEnergySensor, MarstekVenusCycleSensor, MarstekVenusSolarPowerSensor, MarstekVenusBatteryPowerSensor
+from .calculated_sensors import MarstekVenusEfficiencySensor, MarstekVenusStoredEnergySensor, MarstekVenusCycleSensor, MarstekVenusSolarPowerSensor, MarstekVenusBatteryCellPowerSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -147,8 +147,8 @@ async def async_setup_entry(
         if coordinator.battery_version in ("vA", "vD"):
             for definition in SOLAR_POWER_SENSOR_DEFINITIONS:
                 entities.append(MarstekVenusSolarPowerSensor(coordinator, definition))
-            for definition in BATTERY_POWER_SENSOR_DEFINITIONS:
-                entities.append(MarstekVenusBatteryPowerSensor(coordinator, definition))
+            for definition in BATTERY_CELL_POWER_SENSOR_DEFINITIONS:
+                entities.append(MarstekVenusBatteryCellPowerSensor(coordinator, definition))
 
     # Add discharge window diagnostic sensor (always, even without slots)
     entities.append(DischargeWindowSensor(hass, entry))

@@ -218,18 +218,19 @@ class MarstekVenusSolarPowerSensor(CoordinatorEntity, SensorEntity):
         }
 
 
-class MarstekVenusBatteryPowerSensor(CoordinatorEntity, SensorEntity):
-    """True battery power for a Venus D/A unit: ac_power minus DC PV (MPPT).
+class MarstekVenusBatteryCellPowerSensor(CoordinatorEntity, SensorEntity):
+    """True battery cell power for a Venus D/A unit: battery_power plus DC PV (MPPT).
 
-    The ac_power register reports the AC cable; DC PV passes straight through it,
-    so it shows up as less import / more export. Subtracting the unit's MPPT
-    recovers the battery's own power. Same sign as ac_power (- charge / + discharge).
+    The battery_power register mirrors the AC side with inverted sign and excludes
+    the DC PV, which charges the cells without crossing the AC port. Adding the
+    unit's MPPT recovers the battery's own power. Same sign as battery_power
+    (+ charge / - discharge).
     """
 
     def __init__(
         self, coordinator: MarstekVenusDataUpdateCoordinator, definition: dict
     ) -> None:
-        """Initialize the battery power sensor."""
+        """Initialize the battery cell power sensor."""
         super().__init__(coordinator)
         self.definition = definition
 
@@ -241,24 +242,24 @@ class MarstekVenusBatteryPowerSensor(CoordinatorEntity, SensorEntity):
         self._attr_native_unit_of_measurement = definition.get("unit")
         self._attr_icon = definition.get("icon")
         self._attr_should_poll = False
-        self._ac_key = definition["dependency_keys"]["ac"]
+        self._battery_key = definition["dependency_keys"]["battery"]
         self._mppt_keys = definition["dependency_keys"]["mppt"]
 
     @property
     def native_value(self):
-        """Return ac_power minus this unit's MPPT total (W)."""
+        """Return battery_power plus this unit's MPPT total (W)."""
         if self.coordinator.data is None:
             return None
 
-        ac = self.coordinator.data.get(self._ac_key)
-        if ac is None:
+        battery = self.coordinator.data.get(self._battery_key)
+        if battery is None:
             return None
         solar = 0
         for key in self._mppt_keys:
             value = self.coordinator.data.get(key)
             if value is not None:
                 solar += value
-        return round(ac - solar)
+        return round(battery + solar)
 
     @property
     def device_info(self):

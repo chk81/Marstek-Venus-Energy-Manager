@@ -1047,8 +1047,8 @@
       "solar_power": {
         "name": "Solarleistung"
       },
-      "battery_power": {
-        "name": "Batterieleistung"
+      "battery_cell_power": {
+        "name": "Batteriezellenleistung"
       },
       "round_trip_efficiency_total": {
         "name": "Gesamtwirkungsgrad"

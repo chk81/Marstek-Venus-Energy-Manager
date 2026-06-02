@@ -49,6 +49,7 @@ const I18N = {
     cardFlow: "Energy flow", cardSoc: "System status", cardDaily: "Energy today",
     cardWeekly: "Weekly energy", cardPower: "Power", cardSocToday: "SOC · today",
     grid: "Grid", solar: "Solar", home: "Home", battery: "Battery",
+    excludedDevices: "Excluded devices",
     importing: "Importing", exporting: "Exporting",
     charging: "Charging", discharging: "Discharging", idle: "Idle",
     selfConsumptionSuffix: "% self-consumption", units: "units",
@@ -107,6 +108,7 @@ const I18N = {
     cardFlow: "Flujo de energía", cardSoc: "Estado del sistema", cardDaily: "Energía hoy",
     cardWeekly: "Energía semanal", cardPower: "Potencias", cardSocToday: "SOC · hoy",
     grid: "Red", solar: "Solar", home: "Casa", battery: "Batería",
+    excludedDevices: "Disp. excluidos",
     importing: "Importando", exporting: "Exportando",
     charging: "Cargando", discharging: "Descargando", idle: "Reposo",
     selfConsumptionSuffix: "% autoconsumo", units: "uds",
@@ -165,6 +167,7 @@ const I18N = {
     cardFlow: "Energiefluss", cardSoc: "Systemstatus", cardDaily: "Energie heute",
     cardWeekly: "Wochenenergie", cardPower: "Leistung", cardSocToday: "SOC · heute",
     grid: "Netz", solar: "Solar", home: "Haus", battery: "Batterie",
+    excludedDevices: "Ausgeschl. Geräte",
     importing: "Bezug", exporting: "Einspeisung",
     charging: "Laden", discharging: "Entladen", idle: "Bereit",
     selfConsumptionSuffix: "% Eigenverbrauch", units: "Einh.",
@@ -223,6 +226,7 @@ const I18N = {
     cardFlow: "Flux d'énergie", cardSoc: "État du système", cardDaily: "Énergie aujourd'hui",
     cardWeekly: "Énergie hebdomadaire", cardPower: "Puissances", cardSocToday: "SOC · aujourd'hui",
     grid: "Réseau", solar: "Solaire", home: "Maison", battery: "Batterie",
+    excludedDevices: "Appareils exclus",
     importing: "Importation", exporting: "Exportation",
     charging: "Charge", discharging: "Décharge", idle: "Repos",
     selfConsumptionSuffix: "% autoconsommation", units: "unités",
@@ -281,6 +285,7 @@ const I18N = {
     cardFlow: "Energiestroom", cardSoc: "Systeemstatus", cardDaily: "Energie vandaag",
     cardWeekly: "Energie per week", cardPower: "Vermogen", cardSocToday: "SOC · vandaag",
     grid: "Net", solar: "Zon", home: "Huis", battery: "Batterij",
+    excludedDevices: "Uitgesloten app.",
     importing: "Invoer", exporting: "Teruglevering",
     charging: "Laden", discharging: "Ontladen", idle: "Rust",
     selfConsumptionSuffix: "% zelfconsumptie", units: "stuks",
@@ -336,6 +341,7 @@ const K = {
   // per battery
   batterySoc: "battery_soc",
   acPower: "ac_power", // AC-side power. HA sign: - charge / + discharge (W)
+  batteryPower: "battery_power", // DC terminal power. HA sign: + charge / - discharge (W)
   storedEnergy: "stored_energy", // kWh
   batteryTotalEnergy: "battery_total_energy", // capacity kWh
   inverterState: "inverter_state",
@@ -391,6 +397,7 @@ const K = {
   capacityActive: "capacity_protection_active",
   weeklyFullCharge: "weekly_full_charge",
   chargeDelay: "charge_delay_status",
+  configSummary: "configuration_summary", // hidden; holds excluded-device config
 };
 
 const MPPT_KEYS = ["mppt1_power", "mppt2_power", "mppt3_power", "mppt4_power"];
@@ -631,7 +638,7 @@ class MarstekVenusPanel extends HTMLElement {
   set narrow(v) {
     this._narrow = v;
   }
-  set route(_v) {}
+  set route(_v) { }
 
   connectedCallback() {
     this._injectFonts();
@@ -733,6 +740,35 @@ class MarstekVenusPanel extends HTMLElement {
     const u = (stateObj.attributes.unit_of_measurement || "").toLowerCase();
     return u === "kw" ? n * 1000 : n;
   }
+  /** Sum live power (W) of every enabled excluded device. The per-device power
+   *  sensors are configured in the (hidden) configuration_summary sensor's
+   *  attributes. Returns null when no excluded device exposes a power sensor
+   *  (e.g. none configured, or only EV-no-telemetry entries). */
+  _excludedPowerW() {
+    const hass = this._hass;
+    const domain = this._domain();
+    // configuration_summary is hidden, so _index() skips it — find it directly.
+    let cfgId = null;
+    for (const e of Object.values(hass.entities || {})) {
+      if (e.platform === domain && e.translation_key === K.configSummary) {
+        cfgId = e.entity_id;
+        break;
+      }
+    }
+    const cfg = cfgId ? hass.states[cfgId] : null;
+    if (!cfg) return null;
+    const a = cfg.attributes || {};
+    const n = Number(a.num_excluded_devices) || 0;
+    let total = null;
+    for (let i = 1; i <= n; i++) {
+      if (a[`excluded_device_${i}_enabled`] === false) continue;
+      const sid = a[`excluded_device_${i}_sensor`];
+      if (!sid) continue; // EV-no-telemetry has no power sensor
+      const w = this._watts(hass.states[sid]);
+      if (w != null) total = (total || 0) + w;
+    }
+    return total;
+  }
 
   // --- model builder ---------------------------------------------------------
   /** Build the single source-of-truth model (mirrors the prototype `s`/`agg`). */
@@ -762,14 +798,26 @@ class MarstekVenusPanel extends HTMLElement {
         const s = this._watts(get(mk));
         if (s != null) mpptW = (mpptW || 0) + s;
       }
+      // Venus D/A (MPPT present): battery_power mirrors the AC side with inverted
+      // sign (+ charge / - discharge) and excludes the DC PV, which charges the
+      // cells without crossing the AC port. Add this unit's MPPT to recover the
+      // true cell power. Uses the battery sensor instead of ac_power and is
+      // independent of the ac_power sign. Other versions have no DC PV: derive
+      // from ac_power as before (- charge / + discharge, negated to panel's
+      // + charge / - discharge).
+      const battW = this._watts(get(K.batteryPower));
+      const powerW =
+        mpptW != null
+          ? battW == null
+            ? null
+            : battW + mpptW
+          : acW == null
+            ? null
+            : -acW;
       batteries.push({
         dev,
         soc: this._num(socObj),
-        // ac_power HA sign is - charge / + discharge; negate to panel's + charge / - discharge.
-        // DC PV charges the cells without crossing the AC port (shows up as less
-        // import / more export on ac_power), so add this unit's MPPT back to recover
-        // the true cell power.
-        powerW: acW == null ? null : -acW + (mpptW || 0),
+        powerW,
         mpptW,
         stored: this._num(get(K.storedEnergy)),
         capacity: this._num(get(K.batteryTotalEnergy)),
@@ -873,6 +921,12 @@ class MarstekVenusPanel extends HTMLElement {
     else if (grid != null) home = Math.max(0, grid - battery + solar);
     else home = 0;
 
+    // excluded devices: summed power of all enabled excluded loads (kW). null
+    // when none expose a power sensor — the flow node is hidden in that case.
+    const excludedW = this._excludedPowerW();
+    const excluded = excludedW != null ? excludedW / 1000 : null;
+    const hasExcluded = excludedW != null;
+
     const netBalance = this._num(this._stateFor(byKey, K.netBalance));
 
     // total available power for the bar (sum of per-unit max limits, else heuristic)
@@ -898,6 +952,8 @@ class MarstekVenusPanel extends HTMLElement {
       home,
       grid,
       battery,
+      excluded,
+      hasExcluded,
       soc,
       capacity,
       stored,
@@ -1106,21 +1162,23 @@ class MarstekVenusPanel extends HTMLElement {
     //        "hv" horizontal from element, then vertical down/up to the label
     //        "vh" vertical from element, then horizontal to the label
     const EDGES = [
-      { key: "nGrid",  edge: "grid",  cap: this._t("grid"),    ex: 38, ey: 63, lx: 12, ly: 9,  shape: "hv" },
-      { key: "nSolar", edge: "solar", cap: this._t("solar"),   ex: 50, ey: 33, lx: 50, ly: 9,  shape: "v" },
-      { key: "nHome",  edge: "home",  cap: this._t("home"),    ex: 66, ey: 48, lx: 88, ly: 9,  shape: "hv" },
-      { key: "nBatt",  edge: "batt",  cap: this._t("battery"), ex: 61, ey: 62, lx: 50, ly: 88, shape: "hv" },
+      { key: "nGrid", edge: "grid", cap: this._t("grid"), ex: 38, ey: 63, lx: 12, ly: 9, shape: "hv" },
+      { key: "nSolar", edge: "solar", cap: this._t("solar"), ex: 50, ey: 33, lx: 50, ly: 9, shape: "v" },
+      { key: "nHome", edge: "home", cap: this._t("home"), ex: 66, ey: 48, lx: 88, ly: 9, shape: "hv" },
+      { key: "nBatt", edge: "batt", cap: this._t("battery"), ex: 61, ey: 62, lx: 50, ly: 88, shape: "hv" },
+      { key: "nExcl", edge: "excl", cap: this._t("excludedDevices"), ex: 80, ey: 70, lx: 88, ly: 88, shape: "hv", gap: 6 },
     ];
     const leadPts = (e) => {
+      const g = e.gap ?? GAP; // per-edge override; defaults to the shared GAP
       if (e.shape === "hv") {
-        const y2 = e.ly < e.ey ? e.ly + GAP : e.ly - GAP;
+        const y2 = e.ly < e.ey ? e.ly + g : e.ly - g;
         return `${e.ex},${e.ey} ${e.lx},${e.ey} ${e.lx},${y2}`;
       }
       if (e.shape === "vh") {
-        const x2 = e.lx < e.ex ? e.lx + GAP : e.lx - GAP;
+        const x2 = e.lx < e.ex ? e.lx + g : e.lx - g;
         return `${e.ex},${e.ey} ${e.ex},${e.ly} ${x2},${e.ly}`;
       }
-      const y2 = e.ly < e.ey ? e.ly + GAP : e.ly - GAP; // "v"
+      const y2 = e.ly < e.ey ? e.ly + g : e.ly - g; // "v"
       return `${e.ex},${e.ey} ${e.ex},${y2}`;
     };
 
@@ -2097,6 +2155,12 @@ class MarstekVenusPanel extends HTMLElement {
     r.nBatt.val.textContent = p(battery);
     r.nBatt.badge.textContent =
       (m.soc != null ? Math.round(m.soc) : "—") + "% · " + m.active + " " + this._t("units");
+    // excluded devices (summed power → into the car). Node hidden when no
+    // excluded device exposes a power sensor.
+    const exclActive = m.hasExcluded && m.excluded > 0.03;
+    r.nExcl.node.style.display = m.hasExcluded ? "" : "none";
+    r.nExcl.node.classList.toggle("active", exclActive);
+    r.nExcl.val.textContent = m.hasExcluded ? (m.excluded > 0.03 ? p(m.excluded) : "—") : "—";
 
     // wires (animated node-graph) — skipped in scene mode
     if (r.wires.solar) {
@@ -2114,7 +2178,9 @@ class MarstekVenusPanel extends HTMLElement {
       lead("grid", gridKnown && off(grid));
       lead("home", home > 0.05);
       lead("batt", off(battery));
+      lead("excl", exclActive);
       (r.leads.solar || []).forEach((el) => (el.style.display = m.hasSolar ? "" : "none"));
+      (r.leads.excl || []).forEach((el) => (el.style.display = m.hasExcluded ? "" : "none"));
     }
 
     // animated "snake" flow lines: color + travel direction follow the live state
@@ -2141,9 +2207,13 @@ class MarstekVenusPanel extends HTMLElement {
         "batt",
         off(battery),
         battery > 0 ? "var(--flow-green)" : "var(--flow-blue)",
-        battery > 0
+        battery < 0
       );
+      // excluded loads always flow "into" the car (a consumer): rev=false sends
+      // the snake toward the element attach point (the car), not the label.
+      flow("excl", exclActive, "var(--home)", false);
       (r.flows.solar || []).forEach((el) => (el.style.display = m.hasSolar ? "" : "none"));
+      (r.flows.excl || []).forEach((el) => (el.style.display = m.hasExcluded ? "" : "none"));
     }
 
     // day / night backdrop swap
@@ -2169,9 +2239,9 @@ class MarstekVenusPanel extends HTMLElement {
     // ----- SOC hero (ring colored by charge level) -----
     const socColor =
       m.soc == null ? "var(--battery)"
-      : m.soc < 20 ? "oklch(0.7 0.18 25)"   // low — red
-      : m.soc < 50 ? "oklch(0.82 0.14 75)"  // mid — amber
-      : "var(--battery)";                    // healthy — accent
+        : m.soc < 20 ? "oklch(0.7 0.18 25)"   // low — red
+          : m.soc < 50 ? "oklch(0.82 0.14 75)"  // mid — amber
+            : "var(--battery)";                    // healthy — accent
     if (m.soc != null) {
       r.ringFg.setAttribute(
         "stroke-dashoffset",
@@ -2331,9 +2401,9 @@ class MarstekVenusPanel extends HTMLElement {
       const v = Number(it.s != null ? it.s : it.state);
       const t =
         it.lu != null ? it.lu
-        : it.last_updated ? Date.parse(it.last_updated) / 1000
-        : it.last_changed ? Date.parse(it.last_changed) / 1000
-        : null;
+          : it.last_updated ? Date.parse(it.last_updated) / 1000
+            : it.last_changed ? Date.parse(it.last_changed) / 1000
+              : null;
       if (t == null || Number.isNaN(v)) continue;
       pts.push([t, v * toKw]);
     }
@@ -2452,9 +2522,9 @@ class MarstekVenusPanel extends HTMLElement {
           const v = Number(it.s != null ? it.s : it.state);
           const t =
             it.lu != null ? it.lu * 1000
-            : it.last_updated ? Date.parse(it.last_updated)
-            : it.last_changed ? Date.parse(it.last_changed)
-            : null;
+              : it.last_updated ? Date.parse(it.last_updated)
+                : it.last_changed ? Date.parse(it.last_changed)
+                  : null;
           if (t == null || Number.isNaN(v)) continue;
           const k = dayIndex(t);
           if (k < 0 || k >= days) continue;
@@ -2647,8 +2717,8 @@ class MarstekVenusPanel extends HTMLElement {
       // off-grid power, pinned to the right edge at the AC-power line; shown only
       // when the backup function switch is on (see _patchBatteryCard).
       `<div class="bat-offgrid" style="display:none">` +
-        `<div class="bat-pwr"><span class="num bat-og-val">—</span><span class="bat-og-unit dim"></span></div>` +
-        `<div class="muted bat-og-lbl">${this._t("offgrid")}</div>` +
+      `<div class="bat-pwr"><span class="num bat-og-val">—</span><span class="bat-og-unit dim"></span></div>` +
+      `<div class="muted bat-og-lbl">${this._t("offgrid")}</div>` +
       `</div>`;
     top.appendChild(ring.ring);
     top.appendChild(pw);
@@ -2855,9 +2925,9 @@ class MarstekVenusPanel extends HTMLElement {
       // tiers mirror const.py BALANCE_THRESHOLD_YELLOW/ORANGE/RED (raw delta)
       M.cdelta.style.color =
         d >= DELTA_MV_RED ? "oklch(0.7 0.18 25)"
-        : d >= DELTA_MV_ORANGE ? "oklch(0.72 0.16 50)"
-        : d >= DELTA_MV_YELLOW ? "oklch(0.82 0.14 75)"
-        : "";
+          : d >= DELTA_MV_ORANGE ? "oklch(0.72 0.16 50)"
+            : d >= DELTA_MV_YELLOW ? "oklch(0.82 0.14 75)"
+              : "";
     } else {
       M.cdelta.textContent = "—";
       M.cdelta.style.color = "";

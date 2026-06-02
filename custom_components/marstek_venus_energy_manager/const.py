@@ -1817,20 +1817,20 @@ SOLAR_POWER_SENSOR_DEFINITIONS = [
     }
 ]
 
-# Per-battery true battery power (AC port net of DC PV) — vA/vD only. The ac_power
-# register reports the AC cable; DC PV passes through it, so subtract the unit's
-# MPPT to get the battery's own charge/discharge. Same sign as ac_power
-# (- charge / + discharge).
-BATTERY_POWER_SENSOR_DEFINITIONS = [
+# Per-battery true battery cell power (DC terminal net of DC PV) — vA/vD only. The
+# battery_power register lumps in the DC PV feeding the bus, so subtract the unit's
+# MPPT to recover the battery's own charge/discharge. Sign follows battery_power
+# (+ charge / - discharge).
+BATTERY_CELL_POWER_SENSOR_DEFINITIONS = [
     {
-        "key": "battery_power",
-        "name": "Battery Power",
+        "key": "battery_cell_power",
+        "name": "Battery Cell Power",
         "unit": "W",
         "device_class": "power",
         "state_class": "measurement",
         "icon": "mdi:home-battery",
         "dependency_keys": {
-            "ac": "ac_power",
+            "battery": "battery_power",
             "mppt": ["mppt1_power", "mppt2_power", "mppt3_power", "mppt4_power"],
         },
     }

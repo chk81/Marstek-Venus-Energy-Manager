@@ -994,8 +994,8 @@
       "solar_power": {
         "name": "Solar Power"
       },
-      "battery_power": {
-        "name": "Battery Power"
+      "battery_cell_power": {
+        "name": "Battery Cell Power"
       },
       "round_trip_efficiency_total": {
         "name": "Round-Trip Efficiency"

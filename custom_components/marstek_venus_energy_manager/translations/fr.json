@@ -1047,8 +1047,8 @@
       "solar_power": {
         "name": "Puissance solaire"
       },
-      "battery_power": {
-        "name": "Puissance de la batterie"
+      "battery_cell_power": {
+        "name": "Puissance de cellule batterie"
       },
       "round_trip_efficiency_total": {
         "name": "Rendement Total Aller-Retour"

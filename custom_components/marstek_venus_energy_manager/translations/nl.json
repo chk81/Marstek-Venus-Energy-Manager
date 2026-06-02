@@ -1047,8 +1047,8 @@
       "solar_power": {
         "name": "Zonnevermogen"
       },
-      "battery_power": {
-        "name": "Batterijvermogen"
+      "battery_cell_power": {
+        "name": "Batterijcelvermogen"
       },
       "round_trip_efficiency_total": {
         "name": "Totaal Rendement"
