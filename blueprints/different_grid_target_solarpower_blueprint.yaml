@@ -5,6 +5,7 @@ blueprint:
     - Grid Target wird kontinuierlich angepasst je nachdem ob geladen oder entladen wird.
     - Dabei gelten je nach aktuellem Sensorwert (Morgen/Abend) unterschiedliche Werte.
     - SOC-Grenzwert wird per Hysterese-Schwellenwert umgeschaltet.
+    - Grid Target wird nur beim Morgen/Abend-Übergang neu gesetzt, nicht bei jeder Forecast-Änderung.
   domain: automation
   input:
 
@@ -205,6 +206,7 @@ variables:
   power_sensor: !input power_sensor
 
 triggers:
+  # Grid Target: kontinuierlich auf Lade-/Entladesensor reagieren
   - trigger: numeric_state
     entity_id: !input charge_power_sensor
     above: !input active_threshold_w
@@ -224,16 +226,15 @@ triggers:
   - trigger: homeassistant
     event: start
     id: homeassistant_start
-  - trigger: state
+  # Hysterese: nur auf Schwellen-Übergänge reagieren
+  - trigger: numeric_state
     entity_id: !input power_sensor
-    id: sensor_change
-
-conditions:
-  - condition: template
-    value_template: >
-      {{ trigger.id != 'sensor_change'
-         or (trigger.to_state.state not in ['unavailable', 'unknown', 'none']
-             and trigger.from_state.state not in ['unavailable', 'unknown', 'none']) }}
+    above: !input upper_threshold
+    id: morgen
+  - trigger: numeric_state
+    entity_id: !input power_sensor
+    below: !input lower_threshold
+    id: abend
 
 actions:
   - variables:
@@ -242,18 +243,6 @@ actions:
       current_target_w: "{{ states(target_grid_power_number) | float(999999) }}"
       sensor_value: "{{ states(power_sensor) | float(0) }}"
       hysterese_on: "{{ sensor_value >= upper_threshold }}"
-      hysterese_current: >
-        {% if trigger.id == 'sensor_change' %}
-          {{ trigger.to_state.state | float(0) }}
-        {% else %}
-          0
-        {% endif %}
-      hysterese_last: >
-        {% if trigger.id == 'sensor_change' %}
-          {{ trigger.from_state.state | float(0) }}
-        {% else %}
-          0
-        {% endif %}
       active_charge_target: "{{ charge_target_on_w if hysterese_on else charge_target_off_w }}"
       active_discharge_target: "{{ discharge_target_on_w if hysterese_on else discharge_target_off_w }}"
 
@@ -261,36 +250,70 @@ actions:
       # ── Hysterese: Morgen ─────────────────────────────────────────────────
       - conditions:
           - condition: template
-            value_template: >
-              {{ trigger.id == 'sensor_change'
-                 and hysterese_last < upper_threshold
-                 and hysterese_current >= upper_threshold }}
+            value_template: "{{ trigger.id == 'morgen' }}"
         sequence:
           - action: number.set_value
             target:
               entity_id: !input charge_soc_limit
             data:
               value: "{{ charge_soc_limit_value }}"
+          # Grid Target sofort auf Morgen-Werte umschalten
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ discharge_w > active_threshold_w and discharge_w >= charge_w }}"
+                sequence:
+                  - action: number.set_value
+                    target:
+                      entity_id: !input target_grid_power_number
+                    data:
+                      value: "{{ discharge_target_on_w }}"
+              - conditions:
+                  - condition: template
+                    value_template: "{{ charge_w > active_threshold_w and charge_w > discharge_w }}"
+                sequence:
+                  - action: number.set_value
+                    target:
+                      entity_id: !input target_grid_power_number
+                    data:
+                      value: "{{ charge_target_on_w }}"
 
       # ── Hysterese: Abend ──────────────────────────────────────────────────
       - conditions:
           - condition: template
-            value_template: >
-              {{ trigger.id == 'sensor_change'
-                 and hysterese_last >= lower_threshold
-                 and hysterese_current < lower_threshold }}
+            value_template: "{{ trigger.id == 'abend' }}"
         sequence:
           - action: number.set_value
             target:
               entity_id: !input charge_soc_limit
             data:
               value: "{{ discharge_soc_limit_value }}"
+          # Grid Target sofort auf Abend-Werte umschalten
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ discharge_w > active_threshold_w and discharge_w >= charge_w }}"
+                sequence:
+                  - action: number.set_value
+                    target:
+                      entity_id: !input target_grid_power_number
+                    data:
+                      value: "{{ discharge_target_off_w }}"
+              - conditions:
+                  - condition: template
+                    value_template: "{{ charge_w > active_threshold_w and charge_w > discharge_w }}"
+                sequence:
+                  - action: number.set_value
+                    target:
+                      entity_id: !input target_grid_power_number
+                    data:
+                      value: "{{ charge_target_off_w }}"
 
       # ── Grid Target: Entladen ─────────────────────────────────────────────
       - conditions:
           - condition: template
             value_template: >
-              {{ trigger.id in ['discharge_started', 'charge_stopped', 'homeassistant_start', 'sensor_change']
+              {{ trigger.id in ['discharge_started', 'charge_stopped', 'homeassistant_start']
                  and discharge_w > active_threshold_w
                  and discharge_w >= charge_w
                  and current_target_w != active_discharge_target }}
@@ -305,7 +328,7 @@ actions:
       - conditions:
           - condition: template
             value_template: >
-              {{ trigger.id in ['charge_started', 'discharge_stopped', 'homeassistant_start', 'sensor_change']
+              {{ trigger.id in ['charge_started', 'discharge_stopped', 'homeassistant_start']
                  and charge_w > active_threshold_w
                  and charge_w > discharge_w
                  and current_target_w != active_charge_target }}
