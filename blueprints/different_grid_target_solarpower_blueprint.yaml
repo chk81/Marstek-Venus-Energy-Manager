@@ -2,7 +2,7 @@ blueprint:
   name: "Hysterese + Grid Target Steuerung"
   description: >
     Kombiniert zwei Logiken:
-    - Grid Target und Max. Entladeleistung werden kontinuierlich angepasst je nachdem ob geladen oder entladen wird.
+    - Grid Target wird kontinuierlich angepasst je nachdem ob geladen oder entladen wird.
     - Dabei gelten je nach aktuellem Sensorwert (Morgen/Abend) unterschiedliche Werte.
     - SOC-Grenzwert wird per Hysterese-Schwellenwert umgeschaltet.
   domain: automation
@@ -41,15 +41,6 @@ blueprint:
       name: "PD Target Grid Power Number"
       description: "Marstek Venus PD Target Grid Power Number Entity."
       default: number.marstek_venus_system_pd_target_grid_power
-      selector:
-        entity:
-          filter:
-            domain: number
-
-    max_discharge_power:
-      name: "Max. Entladeleistung Entity"
-      description: "Entity für die maximale Entladeleistung."
-      default: number.marstek_venus_1_max_entladeleistung
       selector:
         entity:
           filter:
@@ -102,7 +93,7 @@ blueprint:
           unit_of_measurement: W
           mode: box
 
-    # ── Grid Target + Max. Entladeleistung: Morgen ────────────────────────────
+    # ── Morgen ────────────────────────────────────────────────────────────────
     charge_target_on_w:
       name: "Grid Target While Charging (Morgen)"
       description: "Wird gesetzt solange geladen wird und Sensor >= Morgen-Schwellenwert. Negative Werte = Export ins Netz."
@@ -127,19 +118,19 @@ blueprint:
           unit_of_measurement: W
           mode: box
 
-    max_discharge_power_on_value:
-      name: "Max. Entladeleistung (Morgen)"
-      description: "Maximale Entladeleistung die morgens gesetzt wird (W)."
-      default: 0
+    charge_soc_limit_value:
+      name: "Lade-SOC-Grenzwert (Morgen)"
+      description: "SOC-Grenzwert der morgens gesetzt wird (%)."
+      default: 100
       selector:
         number:
           min: 0
-          max: 2500
-          step: 10
-          unit_of_measurement: W
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
           mode: box
 
-    # ── Grid Target + Max. Entladeleistung: Abend ─────────────────────────────
+    # ── Abend ─────────────────────────────────────────────────────────────────
     charge_target_off_w:
       name: "Grid Target While Charging (Abend)"
       description: "Wird gesetzt solange geladen wird und Sensor < Morgen-Schwellenwert. Negative Werte = Export ins Netz."
@@ -164,16 +155,16 @@ blueprint:
           unit_of_measurement: W
           mode: box
 
-    max_discharge_power_off_value:
-      name: "Max. Entladeleistung (Abend)"
-      description: "Maximale Entladeleistung die abends gesetzt wird (W)."
-      default: 800
+    discharge_soc_limit_value:
+      name: "Lade-SOC-Grenzwert (Abend)"
+      description: "SOC-Grenzwert der abends gesetzt wird (%)."
+      default: 100
       selector:
         number:
           min: 0
-          max: 2500
-          step: 10
-          unit_of_measurement: W
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
           mode: box
 
     # ── Grid Target: Idle ─────────────────────────────────────────────────────
@@ -196,31 +187,6 @@ blueprint:
           unit_of_measurement: W
           mode: box
 
-    # ── SOC-Grenzwert ─────────────────────────────────────────────────────────
-    charge_soc_limit_value:
-      name: "Lade-SOC-Grenzwert (Morgen)"
-      description: "SOC-Grenzwert der morgens gesetzt wird (%)."
-      default: 100
-      selector:
-        number:
-          min: 0
-          max: 100
-          step: 1
-          unit_of_measurement: "%"
-          mode: box
-
-    discharge_soc_limit_value:
-      name: "Lade-SOC-Grenzwert (Abend)"
-      description: "SOC-Grenzwert der abends gesetzt wird (%)."
-      default: 100
-      selector:
-        number:
-          min: 0
-          max: 100
-          step: 1
-          unit_of_measurement: "%"
-          mode: box
-
 variables:
   upper_threshold: !input upper_threshold
   lower_threshold: !input lower_threshold
@@ -231,14 +197,11 @@ variables:
   discharge_target_on_w: !input discharge_target_on_w
   charge_target_off_w: !input charge_target_off_w
   discharge_target_off_w: !input discharge_target_off_w
-  max_discharge_power_on_value: !input max_discharge_power_on_value
-  max_discharge_power_off_value: !input max_discharge_power_off_value
   charge_soc_limit_value: !input charge_soc_limit_value
   discharge_soc_limit_value: !input discharge_soc_limit_value
   charge_power_sensor: !input charge_power_sensor
   discharge_power_sensor: !input discharge_power_sensor
   target_grid_power_number: !input target_grid_power_number
-  max_discharge_power: !input max_discharge_power
   power_sensor: !input power_sensor
 
 triggers:
@@ -293,7 +256,6 @@ actions:
         {% endif %}
       active_charge_target: "{{ charge_target_on_w if hysterese_on else charge_target_off_w }}"
       active_discharge_target: "{{ discharge_target_on_w if hysterese_on else discharge_target_off_w }}"
-      active_max_discharge: "{{ max_discharge_power_on_value if hysterese_on else max_discharge_power_off_value }}"
 
   - choose:
       # ── Hysterese: Morgen ─────────────────────────────────────────────────
@@ -324,7 +286,7 @@ actions:
             data:
               value: "{{ discharge_soc_limit_value }}"
 
-      # ── Grid Target + Max. Entladeleistung: Entladen ──────────────────────
+      # ── Grid Target: Entladen ─────────────────────────────────────────────
       - conditions:
           - condition: template
             value_template: >
@@ -338,13 +300,8 @@ actions:
               entity_id: !input target_grid_power_number
             data:
               value: "{{ active_discharge_target }}"
-          - action: number.set_value
-            target:
-              entity_id: !input max_discharge_power
-            data:
-              value: "{{ active_max_discharge }}"
 
-      # ── Grid Target + Max. Entladeleistung: Laden ─────────────────────────
+      # ── Grid Target: Laden ────────────────────────────────────────────────
       - conditions:
           - condition: template
             value_template: >
@@ -358,11 +315,6 @@ actions:
               entity_id: !input target_grid_power_number
             data:
               value: "{{ active_charge_target }}"
-          - action: number.set_value
-            target:
-              entity_id: !input max_discharge_power
-            data:
-              value: "{{ active_max_discharge }}"
 
       # ── Grid Target: Idle ─────────────────────────────────────────────────
       - conditions:
