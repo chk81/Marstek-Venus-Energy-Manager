@@ -1217,6 +1217,7 @@
           "smooth": "Doux",
           "balanced": "Équilibré",
           "aggressive": "Agressif",
+          "very_aggressive": "Très agressif",
           "custom": "Personnalisé"
         }
       }

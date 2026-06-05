@@ -1217,6 +1217,7 @@
           "smooth": "Zacht",
           "balanced": "Gebalanceerd",
           "aggressive": "Agressief",
+          "very_aggressive": "Zeer agressief",
           "custom": "Aangepast"
         }
       }

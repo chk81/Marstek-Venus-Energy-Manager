@@ -78,7 +78,7 @@ Only present when the [cell balance monitor](../features/cell-balance-monitor.md
 | Entity | Options |
 |---|---|
 | `select.*_force_mode` | None / Charge / Discharge |
-| `select.marstek_venus_system_pd_tuning_profile` | Very smooth / Smooth / Balanced / Aggressive / Custom — one-click PD presets that set `Kp`, `Kd` and the rate limit together (deadband stays user-owned) |
+| `select.marstek_venus_system_pd_tuning_profile` | Very smooth / Smooth / Balanced / Aggressive / Very aggressive / Custom — one-click PD presets that set `Kp`, `Kd` and the rate limit together (deadband stays user-owned) |
 
 ## Switches
 

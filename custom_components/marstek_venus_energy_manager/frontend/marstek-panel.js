@@ -58,7 +58,7 @@ const I18N = {
     gridImport: "Grid imported", gridExport: "Grid exported",
     now: "now", noData: "No data", imported: "Imported", exported: "Exported",
     diagTitle: "Integration status",
-    diagIntegration: "Integration", diagNetBalance: "Net balance", diagAlarm: "Alarm",
+    diagIntegration: "Integration", diagPdState: "PD state", diagNetBalance: "Net balance", diagAlarm: "Alarm",
     diagActiveBatteries: "Active batteries", diagNonResponsive: "No response",
     diagDischargeWindow: "Discharge window", diagPredictive: "Predictive charging",
     diagPeak: "Peak shaving", diagWeeklyCharge: "Weekly charge", diagChargeDelay: "Charge delay",
@@ -118,7 +118,7 @@ const I18N = {
     gridImport: "Red importada", gridExport: "Red exportada",
     now: "ahora", noData: "Sin datos", imported: "Importada", exported: "Exportada",
     diagTitle: "Estado de la integración",
-    diagIntegration: "Integración", diagNetBalance: "Balance neto", diagAlarm: "Alarma",
+    diagIntegration: "Integración", diagPdState: "Estado PD", diagNetBalance: "Balance neto", diagAlarm: "Alarma",
     diagActiveBatteries: "Baterías activas", diagNonResponsive: "Sin respuesta",
     diagDischargeWindow: "Ventana de descarga", diagPredictive: "Carga predictiva",
     diagPeak: "Reducción de picos", diagWeeklyCharge: "Carga semanal", diagChargeDelay: "Retardo de carga",
@@ -178,7 +178,7 @@ const I18N = {
     gridImport: "Xarxa importada", gridExport: "Xarxa exportada",
     now: "ara", noData: "Sense dades", imported: "Importada", exported: "Exportada",
     diagTitle: "Estat de la integració",
-    diagIntegration: "Integració", diagNetBalance: "Balanç net", diagAlarm: "Alarma",
+    diagIntegration: "Integració", diagPdState: "Estat PD", diagNetBalance: "Balanç net", diagAlarm: "Alarma",
     diagActiveBatteries: "Bateries actives", diagNonResponsive: "Sense resposta",
     diagDischargeWindow: "Finestra de descàrrega", diagPredictive: "Càrrega predictiva",
     diagPeak: "Reducció de pics", diagWeeklyCharge: "Càrrega setmanal", diagChargeDelay: "Retard de càrrega",
@@ -238,7 +238,7 @@ const I18N = {
     gridImport: "Netzbezug", gridExport: "Netzeinspeisung",
     now: "jetzt", noData: "Keine Daten", imported: "Bezug", exported: "Einspeisung",
     diagTitle: "Integrationsstatus",
-    diagIntegration: "Integration", diagNetBalance: "Netto-Balance", diagAlarm: "Alarm",
+    diagIntegration: "Integration", diagPdState: "PD-Status", diagNetBalance: "Netto-Balance", diagAlarm: "Alarm",
     diagActiveBatteries: "Aktive Batterien", diagNonResponsive: "Keine Antwort",
     diagDischargeWindow: "Entladefenster", diagPredictive: "Prädiktives Laden",
     diagPeak: "Spitzenlastkappung", diagWeeklyCharge: "Wöchentliche Ladung", diagChargeDelay: "Ladeverzögerung",
@@ -298,7 +298,7 @@ const I18N = {
     gridImport: "Réseau importé", gridExport: "Réseau exporté",
     now: "maintenant", noData: "Aucune donnée", imported: "Importée", exported: "Exportée",
     diagTitle: "État de l'intégration",
-    diagIntegration: "Intégration", diagNetBalance: "Bilan net", diagAlarm: "Alarme",
+    diagIntegration: "Intégration", diagPdState: "État PD", diagNetBalance: "Bilan net", diagAlarm: "Alarme",
     diagActiveBatteries: "Batteries actives", diagNonResponsive: "Sans réponse",
     diagDischargeWindow: "Fenêtre de décharge", diagPredictive: "Charge prédictive",
     diagPeak: "Écrêtement de pointe", diagWeeklyCharge: "Charge hebdomadaire", diagChargeDelay: "Délai de charge",
@@ -358,7 +358,7 @@ const I18N = {
     gridImport: "Net ingevoerd", gridExport: "Net teruggeleverd",
     now: "nu", noData: "Geen gegevens", imported: "Ingevoerd", exported: "Teruggeleverd",
     diagTitle: "Integratiestatus",
-    diagIntegration: "Integratie", diagNetBalance: "Nettosaldo", diagAlarm: "Alarm",
+    diagIntegration: "Integratie", diagPdState: "PD-status", diagNetBalance: "Nettosaldo", diagAlarm: "Alarm",
     diagActiveBatteries: "Actieve batterijen", diagNonResponsive: "Geen reactie",
     diagDischargeWindow: "Ontlaadvenster", diagPredictive: "Voorspellend laden",
     diagPeak: "Piekbegrenzing", diagWeeklyCharge: "Wekelijkse lading", diagChargeDelay: "Laadvertraging",
@@ -449,6 +449,7 @@ const K = {
   sysDailyGridImport: "system_daily_grid_import_energy", // exact daily grid import (kWh)
   sysDailyGridExport: "system_daily_grid_export_energy", // exact daily grid export (kWh)
   sysAlarm: "system_alarm_status",
+  pdQuality: "system_pd_control_quality", // PD control-quality verdict
   // diagnostics / flags
   netBalance: "balance_neto",
   activeBatteries: "active_batteries",
@@ -482,6 +483,7 @@ const DIAG_ROWS = [
   { key: K.weeklyFullCharge, lk: "diagWeeklyCharge" },
   { key: K.capacityActive, lk: "diagPeak" },
   { key: K.netBalance, lk: "diagNetBalance" },
+  { key: K.pdQuality, lk: "diagPdState" },
 ];
 
 // Cell-imbalance color thresholds (raw delta, mV). Mirror const.py
@@ -2354,6 +2356,12 @@ class MarstekVenusPanel extends HTMLElement {
           text: disp,
           tone: raw === "ok" ? "good" : raw === "warning" ? "warn" : raw === "fault" ? "bad" : "neutral",
         };
+      case K.pdQuality:
+        // stable=good, oscillating/sluggish=warn, battery_limited/collecting_data=neutral
+        return {
+          text: disp,
+          tone: raw === "stable" ? "good" : (raw === "oscillating" || raw === "sluggish") ? "warn" : "neutral",
+        };
       case K.predictiveActive:
       case K.capacityActive:
         return { text: disp, tone: raw === "on" ? "good" : "neutral" };
@@ -3679,9 +3687,11 @@ class MarstekVenusPanel extends HTMLElement {
       frag.appendChild(sel);
       store[id] = { type: "select", el: sel };
     } else if (domain === "sensor") {
-      // read-only verdict (e.g. PD control quality) — localized state, no input
+      // read-only verdict (e.g. PD control quality) — localized state, no input.
+      // Clicking the value opens HA more-info (state history graph).
       const valEl = document.createElement("span");
       valEl.className = "ctl-val ctl-sensor";
+      this._linkMoreInfo(valEl, id);
       frag.appendChild(valEl);
       store[id] = { type: "sensor", val: valEl };
     } else {
@@ -4135,6 +4145,7 @@ class MarstekVenusPanel extends HTMLElement {
       .metric.clickable:hover .m-v { color: var(--accent); }
       .bat-pwr.clickable:hover .bat-pwr-val { color: var(--accent); }
       .bat-cap.clickable:hover { color: var(--ink); }
+      .ctl-val.ctl-sensor.clickable:hover { color: var(--accent); }
       .daily-row.clickable:hover .daily-head .muted { color: var(--ink); }
       .ring.clickable:hover { filter: brightness(1.08); }
       .ring-sub.clickable:hover { color: var(--ink); }

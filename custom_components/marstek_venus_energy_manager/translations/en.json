@@ -1210,6 +1210,7 @@
           "smooth": "Smooth",
           "balanced": "Balanced",
           "aggressive": "Aggressive",
+          "very_aggressive": "Very Aggressive",
           "custom": "Custom"
         }
       }

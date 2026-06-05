@@ -2082,9 +2082,14 @@ PD_TUNING_PROFILES = {
         CONF_PD_KD: 0.45,
         CONF_PD_MAX_POWER_CHANGE: 1200,
     },
+    "very_aggressive": {
+        CONF_PD_KP: 0.75,
+        CONF_PD_KD: 0.45,
+        CONF_PD_MAX_POWER_CHANGE: 2000,
+    },
 }
 
-# Option order shown in the select (custom last); 5 total incl. manual.
+# Option order shown in the select (custom last); 6 total incl. manual.
 PD_TUNING_PROFILE_OPTIONS = list(PD_TUNING_PROFILES.keys()) + [PD_PROFILE_CUSTOM]
 
 # Effective value of each profiled PD param when absent from config_entry.data.

@@ -1223,6 +1223,7 @@
           "smooth": "Suave",
           "balanced": "Equilibrado",
           "aggressive": "Agresivo",
+          "very_aggressive": "Muy Agresivo",
           "custom": "Personalizado"
         }
       }

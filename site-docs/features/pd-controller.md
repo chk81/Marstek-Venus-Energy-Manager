@@ -38,11 +38,15 @@ Instead of tuning the gains by hand, pick a **tuning profile** (`select.*_pd_tun
 | Smooth | 0.30 | 0.25 | 600 W | Conservative |
 | Balanced | 0.35 | 0.30 | 800 W | Default — works for most installs |
 | Aggressive | 0.55 | 0.45 | 1200 W | Clean meter, want a fast response |
+| Very aggressive | 0.75 | 0.45 | 2000 W | Clean meter + battery at full power; fastest response |
 | Custom | — | — | — | Manual: tune the sliders yourself |
 
 - Selecting a profile writes its three gains and hot-reloads them (no restart).
 - Moving any of those three sliders by hand switches the profile to **Custom** automatically; your value is kept.
 - **Deadband is not part of the profiles.** It is your precision / meter-noise preference *and* the reference the control-quality sensor measures against, so it stays a separate slider you own. Changing it does not change the active profile.
+
+!!! warning "Limited battery output power"
+    If you cap the battery's output power (system or per-battery max charge/discharge) **below** a profile's rate limit, the rate limiter never engages — the whole 0→limit range fits in a single cycle, so the controller can jump straight to the cap in one step. The output stays correct and there is no windup (the internal baseline saturates at the cap), but the move is abrupt — more relay wear and possible overshoot before it settles. On a power-limited battery, prefer a smoother profile, or use **Custom** with a rate limit below your cap. **Very aggressive** (2000 W) is meant for a battery running at full power.
 
 In the dashboard, the profile selector and the quality sensor sit at the top of the **PD controller** section of the Control tab.
 
