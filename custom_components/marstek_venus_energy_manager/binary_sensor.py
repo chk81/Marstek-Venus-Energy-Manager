@@ -58,7 +58,7 @@ class MarstekVenusBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self.definition = definition
         
         self._attr_name = f"{coordinator.name} {definition['name']}"
-        self._attr_unique_id = f"{coordinator.host}_{coordinator.port}_{definition['key']}"
+        self._attr_unique_id = f"{coordinator.device_key}_{definition['key']}"
         self._attr_device_class = definition.get("device_class")
         self._attr_icon = definition.get("icon")
         self._attr_entity_registry_enabled_default = definition.get("enabled_by_default", True)
@@ -77,7 +77,7 @@ class MarstekVenusBinarySensor(CoordinatorEntity, BinarySensorEntity):
     def device_info(self):
         """Return device information."""
         return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.host}_{self.coordinator.port}")},
+            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
             "name": self.coordinator.name,
             "manufacturer": "Marstek",
             "model": "Venus",
@@ -98,7 +98,7 @@ class ChargeHysteresisActiveSensor(RestoreEntity, BinarySensorEntity):
 
         self._attr_has_entity_name = True
         self._attr_translation_key = "charge_hysteresis"
-        self._attr_unique_id = f"{coordinator.host}_{coordinator.port}_charge_hysteresis_active"
+        self._attr_unique_id = f"{coordinator.device_key}_charge_hysteresis_active"
         self._attr_icon = "mdi:battery-lock"
         self._attr_should_poll = True
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -151,7 +151,7 @@ class ChargeHysteresisActiveSensor(RestoreEntity, BinarySensorEntity):
     def device_info(self):
         """Return device information."""
         return {
-            "identifiers": {(DOMAIN, f"{self.coordinator.host}_{self.coordinator.port}")},
+            "identifiers": {(DOMAIN, f"{self.coordinator.device_key}")},
             "name": self.coordinator.name,
             "manufacturer": "Marstek",
             "model": "Venus",
@@ -239,6 +239,35 @@ class PredictiveChargingStatusSensor(BinarySensorEntity):
 
         if self.controller.charging_time_slot:
             attrs["time_slot"] = self.controller.charging_time_slot
+
+        active_slot_per_battery = {}
+        manual_slot_owned = []
+        for coord in self.controller.coordinators:
+            slot_d = self.controller._get_active_slot(coord, "discharge")
+            slot_c = self.controller._get_active_slot(coord, "charge")
+            slot = slot_d or slot_c
+            if slot is not None:
+                limits = self.controller._slot_battery_limits(slot, coord)
+                active_slot_per_battery[coord.name] = {
+                    "start_time": slot.get("start_time"),
+                    "end_time": slot.get("end_time"),
+                    "battery_scope": slot.get("battery_scope"),
+                    "allow_charge": bool(slot.get("allow_charge")),
+                    "allow_discharge": bool(slot.get("allow_discharge")),
+                    "mode": slot.get("mode"),
+                    "soc_override_enabled": bool(slot.get("soc_override_enabled")),
+                    "power_override_enabled": bool(slot.get("power_override_enabled")),
+                    "soc_min": limits.get("soc_min"),
+                    "soc_max": limits.get("soc_max"),
+                    "max_charge_power_w": limits.get("max_charge_power_w"),
+                    "max_discharge_power_w": limits.get("max_discharge_power_w"),
+                }
+            if self.controller._is_manual_slot_owned(coord):
+                manual_slot_owned.append(coord.name)
+        if active_slot_per_battery:
+            attrs["active_slot_per_battery"] = active_slot_per_battery
+        if manual_slot_owned:
+            attrs["manual_slot_owned"] = manual_slot_owned
 
         if self.controller.solar_forecast_sensor:
             attrs["solar_forecast_sensor"] = self.controller.solar_forecast_sensor

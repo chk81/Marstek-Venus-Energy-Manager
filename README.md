@@ -12,12 +12,14 @@ The **Marstek Venus Energy Manager** is a comprehensive Home Assistant integrati
 >
 > **If you do not agree to these terms, DO NOT install or use this integration.**
 
+
+![Dashboard](assets/MVEM%20-%20Dashboard.gif)
+
 ## Support
 
 If you find this integration useful, you can support my work:
 
 <a href="https://buymeacoffee.com/ffunes" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="40" width="145" ></a>
-
 ## Documentation
 
 Full documentation (configuration, features, entities, troubleshooting) is available at:
@@ -28,9 +30,10 @@ Full documentation (configuration, features, entities, troubleshooting) is avail
 
 - **Zero Export/Import PD Controller**: Keeps grid exchange near zero using a Proportional-Derivative algorithm.
 - **Oscillation Prevention**: Deadband and derivative gain prevent rapid charge/discharge cycling.
+- **One-Click PD Profiles + Quality Sensor**: Pick a tuning profile (Very smooth → Very aggressive) instead of tuning gains by hand; a control-quality sensor reports whether the result is stable, oscillating or sluggish.
 - **Multi-Battery Support**: Manage up to 6 batteries with intelligent load sharing and SOC-based priority.
-- **Predictive Grid Charging**: Automatically charges from the grid when solar forecast + battery won't cover tomorrow's consumption. Supports fixed time slots, dynamic pricing, and real-time pricing modes.
-- **Discharge Time Slots**: Restrict or allow discharge during specific hours and days.
+- **Predictive Grid Charging**: Automatically charges from the grid when solar forecast + battery won't cover tomorrow's consumption. Supports fixed time slots, dynamic pricing, and real-time pricing modes. An optional grid-charge margin (%) tops up the grid amount to hedge optimistic solar forecasts.
+- **Time Slots (v2)**: Per-battery windows with independent charge/discharge ticks, optional SOC and power overrides, and a manual mode that forces a fixed charge or discharge power. Up to 8 slots per integration.
 - **Weekly Full Charge**: Forces 100% SOC once a week for LFP cell balancing.
 - **Solar-Aware Charge Delay**: Holds back grid charging while solar can still cover the required energy.
 - **Peak Shaving**: Reserves battery capacity to cover demand spikes above a configurable power threshold, keeping energy in reserve rather than covering all consumption.

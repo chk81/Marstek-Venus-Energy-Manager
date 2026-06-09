@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
@@ -12,12 +12,14 @@ from .const import (
     DOMAIN,
     BALANCE_STORAGE_KEY,
     BALANCE_STORAGE_VERSION,
+    BALANCE_BASELINE_OFFSET_MV,
     BALANCE_THRESHOLD_YELLOW,
     BALANCE_THRESHOLD_ORANGE,
     BALANCE_THRESHOLD_RED,
     BALANCE_HISTORY_MAX,
     BALANCE_RED_CONSECUTIVE_ALERT,
     BALANCE_TREND_ALERT_AVG_MV,
+    BALANCE_NOTIFY_COOLDOWN_DAYS,
 )
 
 if TYPE_CHECKING:
@@ -72,7 +74,8 @@ class BalanceMonitor:
 
     async def async_restore_coordinator(self, coordinator: Any) -> None:
         """Restore state machine phase for a coordinator after HA restart."""
-        host = coordinator.host
+        await self._migrate_legacy_host_key(coordinator)
+        host = coordinator.device_key
         bat = self._data.get(host, {})
         phase = bat.get("phase", "IDLE")
         phase_started = None
@@ -101,6 +104,25 @@ class BalanceMonitor:
                 phase,
             )
 
+    async def _migrate_legacy_host_key(self, coordinator: Any) -> None:
+        """Rename persisted data keyed by bare host to the device_key scheme.
+
+        Pre-slave-id installs keyed balance data by host alone. device_key is
+        ``{host}_{port}`` for slave 1, so rename the old entry in place to keep
+        history. No-op once migrated or for fresh installs.
+        """
+        legacy = coordinator.host
+        new_key = coordinator.device_key
+        if legacy != new_key and legacy in self._data and new_key not in self._data:
+            self._data[new_key] = self._data.pop(legacy)
+            await self._store.async_save(self._data)
+            _LOGGER.info(
+                "[%s] Balance monitor: migrated store key %s -> %s",
+                coordinator.name,
+                legacy,
+                new_key,
+            )
+
     # ------------------------------------------------------------------
     # Main entry point — called every coordinator poll cycle
     # ------------------------------------------------------------------
@@ -111,7 +133,7 @@ class BalanceMonitor:
         Imbalance readings are now recorded only by explicit 3.55 V top-charge
         measurements and active-balance measurements.
         """
-        host = coordinator.host
+        host = coordinator.device_key
         if host not in self._states:
             self._states[host] = _BatteryState()
 
@@ -156,7 +178,7 @@ class BalanceMonitor:
         delta_mv = (vmax_f - vmin_f) * 1000
         extra = {"from_phase": from_phase, "to_phase": to_phase}
         await self._save_reading(
-            coordinator.host,
+            coordinator.device_key,
             delta_mv,
             vmax_f,
             vmin_f,
@@ -185,7 +207,7 @@ class BalanceMonitor:
             soc_f = None
         delta_mv = (vmax_f - vmin_f) * 1000
         await self._save_reading(
-            coordinator.host,
+            coordinator.device_key,
             delta_mv,
             vmax_f,
             vmin_f,
@@ -214,7 +236,7 @@ class BalanceMonitor:
             soc_f = None
         delta_mv = (vmax_f - vmin_f) * 1000
         await self._save_reading(
-            coordinator.host,
+            coordinator.device_key,
             delta_mv,
             vmax_f,
             vmin_f,
@@ -261,18 +283,24 @@ class BalanceMonitor:
         bat["readings"] = bat["readings"][-BALANCE_HISTORY_MAX:]
 
         status = self._status_for_delta(delta_mv)
+        issues: list[str] = []
+        severe = False
         if reading_type == "top_balance_measurement" and coordinator is not None:
-            status = self._evaluate(host, delta_mv, bat, coordinator)
+            status, severe = self._evaluate(delta_mv, bat, issues)
 
         trend = self._trend(host)
         if reading_type == "top_balance_measurement" and coordinator is not None:
-            self._check_trend_alert(host, coordinator.name, trend)
+            self._check_trend_alert(trend, issues)
+            if issues:
+                self._maybe_notify(host, coordinator.name, bat, issues, severe)
 
         await self._store.async_save(self._data)
         self._push_sensors(host, delta_mv, status, trend, entry["ts"])
         return status
 
-    def _evaluate(self, host: str, delta_mv: float, bat: dict, coordinator: Any) -> str:
+    def _evaluate(
+        self, delta_mv: float, bat: dict, issues: list[str]
+    ) -> tuple[str, bool]:
         if delta_mv < BALANCE_THRESHOLD_YELLOW:
             status = "green"
             bat["consecutive_red"] = 0
@@ -286,32 +314,22 @@ class BalanceMonitor:
             status = "red"
             bat["consecutive_red"] = bat.get("consecutive_red", 0) + 1
 
-        if status in ("orange", "red"):
-            if status == "red":
-                msg = f"Delta: {delta_mv:.0f} mV. High cell imbalance detected."
-            else:
-                msg = (
-                    f"Delta: {delta_mv:.0f} mV. Moderate imbalance detected."
-                )
-            self._hass.async_create_task(
-                self._notify(
-                    f"marstek_balance_{host}",
-                    f"⚠️ Cell imbalance — {coordinator.name}",
-                    msg,
-                )
-            )
+        severe = False
+        if status == "red":
+            issues.append(f"Delta: {delta_mv:.0f} mV — high cell imbalance.")
+        elif status == "orange":
+            issues.append(f"Delta: {delta_mv:.0f} mV — moderate imbalance.")
 
         if status == "red" and bat["consecutive_red"] >= BALANCE_RED_CONSECUTIVE_ALERT:
-            self._hass.async_create_task(
-                self._notify(
-                    f"marstek_degraded_{host}",
-                    f"🔴 Possible degraded cell — {coordinator.name}",
-                    f"{delta_mv:.0f} mV delta for {bat['consecutive_red']} consecutive full charges. "
-                    "Check battery condition.",
-                )
+            severe = True
+            issues.append(
+                f"High cell imbalance ({delta_mv:.0f} mV) for "
+                f"{bat['consecutive_red']} consecutive full charges. Consider "
+                f"enabling the 'Active Balance Mode' switch for this battery to "
+                f"rebalance the cells."
             )
 
-        return status
+        return status, severe
 
     def _trend(self, host: str) -> dict:
         readings = self._data.get(host, {}).get("readings", [])
@@ -336,16 +354,36 @@ class BalanceMonitor:
 
         return {"trend": trend, "avg_4w": round(avg, 1), "slope": slope}
 
-    def _check_trend_alert(self, host: str, name: str, trend: dict) -> None:
-        if trend["trend"] == "rising" and trend["avg_4w"] is not None and trend["avg_4w"] > BALANCE_TREND_ALERT_AVG_MV:
-            self._hass.async_create_task(
-                self._notify(
-                    f"marstek_trend_{host}",
-                    f"📈 Rising imbalance trend — {name}",
-                    f"Trend: +{trend['slope']:.1f} mV/reading, avg {trend['avg_4w']:.0f} mV "
-                    f"over last readings.",
-                )
+    def _check_trend_alert(self, trend: dict, issues: list[str]) -> None:
+        if (
+            trend["trend"] == "rising"
+            and trend["avg_4w"] is not None
+            and self._effective_delta(trend["avg_4w"]) > BALANCE_TREND_ALERT_AVG_MV
+        ):
+            issues.append(
+                f"Rising imbalance trend: +{trend['slope']:.1f} mV/reading, "
+                f"avg {trend['avg_4w']:.0f} mV over last readings."
             )
+
+    def _maybe_notify(
+        self, host: str, name: str, bat: dict, issues: list[str], severe: bool
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        last_ts = bat.get("last_notify_ts")
+        if last_ts:
+            try:
+                last_dt = datetime.fromisoformat(last_ts)
+                if now - last_dt < timedelta(days=BALANCE_NOTIFY_COOLDOWN_DAYS):
+                    return
+            except ValueError:
+                pass
+        bat["last_notify_ts"] = now.isoformat()
+        icon = "🔴" if severe else "⚠️"
+        title = f"{icon} Cell balance — {name}"
+        message = "\n".join(f"• {line}" for line in issues)
+        self._hass.async_create_task(
+            self._notify(f"marstek_balance_{host}", title, message)
+        )
 
     async def _persist_state(self, host: str, state: _BatteryState) -> None:
         bat = self._data.setdefault(host, {"readings": [], "consecutive_red": 0})
@@ -399,12 +437,24 @@ class BalanceMonitor:
     # Helpers
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _effective_delta(delta_mv: float) -> float:
+        """Subtract the factory baseline imbalance, floored at 0.
+
+        Marstek cells ship with a large top-of-charge spread that is normal, not
+        a fault. Used only by the rising-trend magnitude gate so steady
+        factory-level readings do not trip a trend alert. Status thresholds are
+        absolute and applied to the raw delta directly.
+        """
+        return max(0.0, delta_mv - BALANCE_BASELINE_OFFSET_MV)
+
     def _status_for_delta(self, delta_mv: float) -> str:
-        if delta_mv < BALANCE_THRESHOLD_YELLOW:
+        effective_mv = self._effective_delta(delta_mv)
+        if effective_mv < BALANCE_THRESHOLD_YELLOW:
             return "green"
-        if delta_mv < BALANCE_THRESHOLD_ORANGE:
+        if effective_mv < BALANCE_THRESHOLD_ORANGE:
             return "yellow"
-        if delta_mv < BALANCE_THRESHOLD_RED:
+        if effective_mv < BALANCE_THRESHOLD_RED:
             return "orange"
         return "red"
 

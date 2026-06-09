@@ -93,14 +93,14 @@ Para evitar el "ping-pong" de activación/desactivación, se aplican tres nivele
 
 Una vez seleccionadas las baterías activas, la potencia total calculada por el [controlador PD](pd-controller.md) se reparte entre ellas proporcionalmente, respetando los límites individuales de potencia y SOC de cada una.
 
-Tambien se pueden configurar limites globales opcionales en **Controlador PD avanzado** tras activar **Activar limites de potencia del sistema**:
+También se pueden configurar límites globales opcionales en **Controlador PD avanzado** tras activar **Activar límites de potencia del sistema**:
 
 | Ajuste | Efecto |
 |---|---|
-| `Potencia maxima de carga del sistema` | Limita la potencia de carga combinada de todas las baterias activas |
-| `Potencia maxima de descarga del sistema` | Limita la potencia de descarga combinada de todas las baterias activas |
+| `Potencia máxima de carga del sistema` | Limita la potencia de carga combinada de todas las baterías activas |
+| `Potencia máxima de descarga del sistema` | Limita la potencia de descarga combinada de todas las baterías activas |
 
-Pon cualquiera de los valores a `0 W` para desactivar el cap de esa direccion. Estos limites se aplican despues de determinar que baterias son elegibles y antes de repartir la potencia, de modo que una bateria puede seguir usando todo su limite individual cuando es la unica activa. Si hay varias baterias activas, el total combinado se limita al cap configurado. Las entidades slider de runtime correspondientes solo se crean cuando la funcionalidad esta activada.
+Pon cualquiera de los valores a `0 W` para desactivar el límite de esa dirección. Estos límites se aplican después de determinar qué baterías son elegibles y antes de repartir la potencia, de modo que una batería puede seguir usando todo su límite individual cuando es la única activa. Si hay varias baterías activas, el total combinado se limita al límite configurado. Las entidades slider de runtime correspondientes solo se crean cuando la funcionalidad está activada.
 
 ## Controles de carga/descarga por batería
 
@@ -137,6 +137,8 @@ El registro se expone en el sensor diagnóstico `Estado de la Integración` medi
 Cuando una batería no entrega la potencia solicitada de forma reiterada — por ejemplo, por un fallo de comunicación Modbus o por una autoprotección del firmware — la integración lo detecta y la retira temporalmente del grupo activo.
 
 Una batería se marca como sin respuesta cuando su potencia entregada es inferior al 5 % de la consigna durante **3 ciclos de control consecutivos**. Una vez marcada, entra en una **ventana de exclusión de 5 minutos** durante la cual no recibe nuevas consignas y las baterías restantes absorben su parte de la carga. Al expirar la ventana, el contador de fallos se reinicia y la batería vuelve a ser elegible.
+
+Los cortes de descarga a SOC bajo están exentos. En el **20 % de SOC** o por debajo (o justo por encima del SOC mínimo configurado), el BMS puede cortar la descarga por su cuenta — por ejemplo una celda débil que cae bajo carga — aunque el SOC reportado siga por encima del mínimo. La batería confirma el comando pero entrega 0 W; esto se trata como un corte esperado del BMS y no como un fallo, así que permanece en el grupo. Es el equivalente al manejo del corte del BMS a SOC alto en el lado de carga.
 
 Este mecanismo impide que una sola batería con problemas degrade silenciosamente el rendimiento del sistema sin generar alarmas ni requerir intervención manual.
 
